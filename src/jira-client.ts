@@ -172,7 +172,7 @@ export class JiraClient {
         };
       }
 
-      logDebugEvent('jira_client.testConnection.success');
+      logDebugEvent('jira_client.testConnection.success', {});
       return true;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

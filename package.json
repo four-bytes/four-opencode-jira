@@ -5,12 +5,31 @@
   "license": "Apache-2.0",
   "type": "module",
   "main": "dist/four-opencode-jira.js",
+  "types": "dist/four-opencode-jira.d.ts",
   "scripts": {
-    "build": "bun build src/four-opencode-jira.ts --outdir=dist --target=bun",
-    "test": "bun test"
+    "build": "bun run scripts/build.ts",
+    "test": "bun test",
+    "typecheck": "bunx tsc --noEmit"
   },
-  "keywords": ["opencode", "opencode-plugin", "four-bytes"],
+  "keywords": ["opencode", "opencode-plugin", "four-bytes", "jira", "atlassian"],
+  "exports": {
+    "./server": {
+      "types": "./dist/four-opencode-jira.d.ts",
+      "import": "./dist/four-opencode-jira.js"
+    },
+    "./tui": {
+      "types": "./dist/tui.d.ts",
+      "import": "./dist/tui.jsx"
+    }
+  },
   "dependencies": {
-    "@opencode-ai/plugin": "^1.15.13"
+    "@opencode-ai/plugin": "^1.15.13",
+    "@opentui/solid": "^0.2.2",
+    "solid-js": "^1.9.12"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "bun-types": "latest",
+    "typescript": "^5.7.3"
   }
 }

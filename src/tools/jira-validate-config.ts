@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { loadConfig, getEnvVar } from '../config';
 import { createJiraClient } from '../jira-client';
 import { logDebugEvent } from '../debug-logger';
-import type { JiraConfig, ValidationField, ValidationReport } from '../types';
+import type { JiraConfig, ValidationField, ValidationReport, Transition } from '../types';
 
 // ────────────────────────────────────────────────────────────────
 // Output formatting
@@ -149,11 +149,11 @@ export const jiraValidateConfigTool = tool({
                       message: `Could not fetch transitions: ${transResult.message}`,
                     };
                   } else {
-                    const trans = transResult;
-                    const names = trans.map(t => t.name).join(', ');
+                    const trans = transResult as Transition[];
+                    const names = trans.map((t: Transition) => t.name).join(', ');
                     transitions = {
                       status: 'ok',
-                      message: `${trans.length} transition(s) available`,
+                      message: `${trans.length as number} transition(s) available`,
                       detail: names || '(none)',
                     };
                   }

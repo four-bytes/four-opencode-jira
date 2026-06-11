@@ -4,10 +4,14 @@
     "target": "ESNext",
     "module": "ESNext",
     "moduleResolution": "bundler",
+    "jsx": "preserve",
+    "jsxImportSource": "@opentui/solid",
     "outDir": "dist",
     "rootDir": "src",
     "lib": ["ESNext"],
-    "types": ["bun-types"]
+    "types": ["bun-types"],
+    "skipLibCheck": true,
+    "declaration": true
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
