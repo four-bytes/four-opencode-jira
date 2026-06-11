@@ -18,7 +18,7 @@ interface ADFDoc {
   version: number;
   content: ADFBlock[];
 }
-type ADFBlock = ADFParagraph | ADFBulletList | ADFCodeBlock;
+type ADFBlock = ADFParagraph | ADFBulletList | ADFCodeBlock | ADFHeading;
 interface ADFParagraph {
   type: "paragraph";
   content: ADFInline[];
@@ -35,6 +35,11 @@ interface ADFCodeBlock {
   type: "codeBlock";
   attrs: { language: string };
   content: ADFText[];
+}
+interface ADFHeading {
+  type: "heading";
+  attrs: { level: number };
+  content: ADFInline[];
 }
 interface ADFText {
   type: "text";
@@ -140,6 +145,20 @@ function textToADF(body: string): ADFBlock[] {
 
     if (inCodeBlock) {
       codeLines.push(line);
+      continue;
+    }
+
+    // Heading (# ## ### etc.)
+    const headingMatch = line.match(/^(#{1,6})\s+(.+)/);
+    if (headingMatch) {
+      const level = headingMatch[1].length;
+      const text = headingMatch[2];
+      flushBullets();
+      blocks.push({
+        type: "heading",
+        attrs: { level },
+        content: parseInline(text),
+      });
       continue;
     }
 
