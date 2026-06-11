@@ -22,42 +22,29 @@ export interface CommentData {
  *   - "adf": Atlassian Document Format JSON (stringified)
  */
 export function formatComment(template: string, data: CommentData): string {
-  const timestamp = new Date().toISOString();
-
   switch (template) {
     case 'markdown':
-      return formatMarkdown(data, timestamp);
+      return formatMarkdown(data);
     case 'adf':
-      return JSON.stringify(formatADF(data, timestamp));
+      return JSON.stringify(formatADF(data));
     case 'plain':
     default:
-      return formatPlain(data, timestamp);
+      return formatPlain(data);
   }
 }
 
 /**
  * Format as Markdown (most common template).
  */
-function formatMarkdown(data: CommentData, timestamp: string): string {
+function formatMarkdown(data: CommentData): string {
   const lines: string[] = [];
 
-  lines.push('### 🤖 OpenCode Update');
-  lines.push('');
-
-  if (data.statusHint) {
-    lines.push(`> Status: ${data.statusHint}`);
-    lines.push('');
-  }
-
-  lines.push(`**${data.summary}**`);
+  if (data.summary) lines.push(data.summary);
 
   if (data.details) {
-    lines.push('');
+    if (lines.length > 0) lines.push('');
     lines.push(data.details);
   }
-
-  lines.push('');
-  lines.push(`⏱️ ${timestamp}`);
 
   logDebugEvent('comment_formatter.markdown', { summary: data.summary.substring(0, 80) });
   return lines.join('\n');
@@ -66,22 +53,15 @@ function formatMarkdown(data: CommentData, timestamp: string): string {
 /**
  * Format as plain text.
  */
-function formatPlain(data: CommentData, timestamp: string): string {
+function formatPlain(data: CommentData): string {
   const lines: string[] = [];
 
-  lines.push('OpenCode Update');
-  if (data.statusHint) {
-    lines.push(`Status: ${data.statusHint}`);
-  }
-  lines.push(data.summary);
+  if (data.summary) lines.push(data.summary);
 
   if (data.details) {
-    lines.push('');
+    if (lines.length > 0) lines.push('');
     lines.push(data.details);
   }
-
-  lines.push('');
-  lines.push(timestamp);
 
   return lines.join('\n');
 }
@@ -92,34 +72,13 @@ function formatPlain(data: CommentData, timestamp: string): string {
  * This produces a valid ADF document that can be used
  * directly in the Jira REST API comment body.
  */
-function formatADF(data: CommentData, timestamp: string): object {
+function formatADF(data: CommentData): object {
   const content: object[] = [];
-
-  // Heading
-  content.push({
-    type: 'heading',
-    attrs: { level: 3 },
-    content: [{ type: 'text', text: 'OpenCode Update', marks: [{ type: 'em' }] }],
-  });
-
-  // Status hint
-  if (data.statusHint) {
-    content.push({
-      type: 'panel',
-      attrs: { panelType: 'info' },
-      content: [
-        {
-          type: 'paragraph',
-          content: [{ type: 'text', text: `Status: ${data.statusHint}`, marks: [{ type: 'strong' }] }],
-        },
-      ],
-    });
-  }
 
   // Summary
   content.push({
     type: 'paragraph',
-    content: [{ type: 'text', text: data.summary, marks: [{ type: 'strong' }] }],
+    content: [{ type: 'text', text: data.summary }],
   });
 
   // Details
@@ -131,12 +90,6 @@ function formatADF(data: CommentData, timestamp: string): object {
       });
     }
   }
-
-  // Timestamp
-  content.push({
-    type: 'paragraph',
-    content: [{ type: 'text', text: `⏱️ ${timestamp}`, marks: [{ type: 'textColor', attrs: { color: '#999999' } }] }],
-  });
 
   logDebugEvent('comment_formatter.adf', { summary: data.summary.substring(0, 80) });
 
