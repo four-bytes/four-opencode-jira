@@ -2,7 +2,7 @@
 // Copyright (c) 2025-2026 Four Bytes
 
 import type { JiraConfig, JiraIssue, CommentResult, Transition, JiraError } from './types';
-import { getEnvVar } from './config';
+import { getCredential } from './config';
 import { logDebugEvent } from './debug-logger';
 
 // ────────────────────────────────────────────────────────────────
@@ -147,6 +147,45 @@ export class JiraClient {
   }
 
   /**
+   * Test API connectivity by calling /myself.
+   * Returns true on success, JiraError on failure.
+   */
+  async testConnection(): Promise<true | JiraError> {
+    const url = `${this.baseUrl}/rest/api/3/myself`;
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': this.authHeader,
+          'Accept': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const body = await response.text();
+        logDebugEvent('jira_client.testConnection.error', { status: response.status, body: body.substring(0, 500) });
+        return {
+          error: true,
+          status: response.status,
+          message: `Jira API error ${response.status}: ${body.substring(0, 200)}`,
+        };
+      }
+
+      logDebugEvent('jira_client.testConnection.success');
+      return true;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logDebugEvent('jira_client.testConnection.exception', { error: msg });
+      return {
+        error: true,
+        status: 0,
+        message: `Network error: ${msg}`,
+      };
+    }
+  }
+
+  /**
    * Execute a transition on a Jira issue.
    * POST /rest/api/3/issue/{issueKey}/transitions
    */
@@ -196,16 +235,16 @@ export class JiraClient {
  * Returns null if required env vars are missing.
  */
 export function createJiraClient(config: JiraConfig): JiraClient | null {
-  const baseUrl = getEnvVar(config, 'baseUrlEnv');
-  const email = getEnvVar(config, 'emailEnv');
-  const apiToken = getEnvVar(config, 'apiTokenEnv');
+  const baseUrl = getCredential(config, 'baseUrl');
+  const email = getCredential(config, 'email');
+  const apiToken = getCredential(config, 'apiToken');
 
   if (!baseUrl || !email || !apiToken) {
     const missing: string[] = [];
     if (!baseUrl) missing.push(config.baseUrlEnv);
     if (!email) missing.push(config.emailEnv);
     if (!apiToken) missing.push(config.apiTokenEnv);
-    logDebugEvent('jira_client.create.missing_env', { missingVars: missing });
+    logDebugEvent('jira_client.create.missing_creds', { missingVars: missing });
     return null;
   }
 

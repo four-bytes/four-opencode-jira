@@ -68,3 +68,23 @@ export function getEnvVar(config: JiraConfig, envField: 'baseUrlEnv' | 'emailEnv
   if (!varName) return undefined;
   return process.env[varName] || undefined;
 }
+
+/**
+ * Get a credential value. Priority: config file inline value > environment variable.
+ *
+ * @param config - The loaded Jira config
+ * @param field - Which credential to get ('baseUrl', 'email', or 'apiToken')
+ * @returns The credential value or undefined
+ */
+export function getCredential(config: JiraConfig, field: 'baseUrl' | 'email' | 'apiToken'): string | undefined {
+  // 1. Check inline config value
+  if (config[field]) return config[field];
+
+  // 2. Fall back to environment variable
+  const envMap: Record<string, 'baseUrlEnv' | 'emailEnv' | 'apiTokenEnv'> = {
+    baseUrl: 'baseUrlEnv',
+    email: 'emailEnv',
+    apiToken: 'apiTokenEnv',
+  };
+  return getEnvVar(config, envMap[field]);
+}

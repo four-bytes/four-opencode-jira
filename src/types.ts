@@ -31,6 +31,10 @@ export interface JiraConfig {
   baseUrlEnv: string;
   emailEnv: string;
   apiTokenEnv: string;
+  // Inline credentials (optional, takes priority over env vars)
+  baseUrl?: string;
+  email?: string;
+  apiToken?: string;
   issueKeyDetection: IssueKeyDetectionConfig;
   comments: CommentsConfig;
   transitions: TransitionsConfig;

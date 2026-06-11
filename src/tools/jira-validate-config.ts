@@ -74,64 +74,62 @@ export const jiraValidateConfigTool = tool({
         };
       }
 
-      // 3. Check environment variables
-      const envVarResults: string[] = [];
-      const missingVars: string[] = [];
+      // 3. Check credentials (config file → env var fallback)
+      const credResults: string[] = [];
+      const missingCreds: string[] = [];
 
-      if (config.baseUrlEnv) {
-        const val = getEnvVar(config, 'baseUrlEnv');
-        if (val) {
-          envVarResults.push(`${config.baseUrlEnv}=${val.replace(/\/\/.*@/, '//***@')}`);
-        } else {
-          envVarResults.push(`${config.baseUrlEnv}=<missing>`);
-          missingVars.push(config.baseUrlEnv);
-        }
-      }
-      if (config.emailEnv) {
-        const val = getEnvVar(config, 'emailEnv');
-        if (val) {
-          envVarResults.push(`${config.emailEnv}=${val}`);
-        } else {
-          envVarResults.push(`${config.emailEnv}=<missing>`);
-          missingVars.push(config.emailEnv);
-        }
-      }
-      if (config.apiTokenEnv) {
-        const val = getEnvVar(config, 'apiTokenEnv');
-        if (val) {
-          envVarResults.push(`${config.apiTokenEnv}=***`);
-        } else {
-          envVarResults.push(`${config.apiTokenEnv}=<missing>`);
-          missingVars.push(config.apiTokenEnv);
-        }
+      const { getCredential } = await import('../config');
+
+      // Base URL
+      const baseUrl = getCredential(config, 'baseUrl');
+      if (baseUrl) {
+        const source = config.baseUrl ? 'config file' : `env:${config.baseUrlEnv}`;
+        credResults.push(`baseUrl=${baseUrl.replace(/\/\/.*@/, '//***@')} (${source})`);
+      } else {
+        credResults.push(`baseUrl=<missing> (check ${config.baseUrlEnv} or config file)`);
+        missingCreds.push('baseUrl');
       }
 
-      const envVars: ValidationField = missingVars.length === 0
-        ? { status: 'ok', message: envVarResults.join(', ') }
+      // Email
+      const email = getCredential(config, 'email');
+      if (email) {
+        const source = config.email ? 'config file' : `env:${config.emailEnv}`;
+        credResults.push(`email=${email} (${source})`);
+      } else {
+        credResults.push(`email=<missing> (check ${config.emailEnv} or config file)`);
+        missingCreds.push('email');
+      }
+
+      // API Token
+      const apiToken = getCredential(config, 'apiToken');
+      if (apiToken) {
+        const source = config.apiToken ? 'config file' : `env:${config.apiTokenEnv}`;
+        credResults.push(`apiToken=*** (${source})`);
+      } else {
+        credResults.push(`apiToken=<missing> (check ${config.apiTokenEnv} or config file)`);
+        missingCreds.push('apiToken');
+      }
+
+      const envVars: ValidationField = missingCreds.length === 0
+        ? { status: 'ok', message: credResults.join(', ') }
         : {
             status: 'missing',
-            message: `Missing: ${missingVars.join(', ')}`,
-            detail: envVarResults.join(', '),
+            message: `Missing: ${missingCreds.join(', ')}`,
+            detail: credResults.join(', '),
           };
 
       // 4. Test API reachability
       let apiReachable: ValidationField;
       let transitions: ValidationField = { status: 'ok', message: 'Not checked (no API connection)' };
 
-      if (missingVars.length === 0 && config.baseUrlEnv) {
+      if (missingCreds.length === 0) {
         const client = createJiraClient(config);
         if (client) {
           try {
-            // Use a simple API call to test connectivity
-            const response = await fetch(`${getEnvVar(config, 'baseUrlEnv')!.replace(/\/+$/, '')}/rest/api/3/myself`, {
-              method: 'GET',
-              headers: {
-                'Authorization': `Basic ${btoa(`${getEnvVar(config, 'emailEnv')!}:${getEnvVar(config, 'apiTokenEnv')!}`)}`,
-                'Accept': 'application/json',
-              },
-            });
+            // Use the client to test connectivity
+            const connResult = await client.testConnection();
 
-            if (response.ok) {
+            if (connResult === true) {
               apiReachable = { status: 'ok', message: 'API connection successful' };
 
               // 5. Check transitions if we have a project key
@@ -162,11 +160,10 @@ export const jiraValidateConfigTool = tool({
                 }
               }
             } else {
-              const body = await response.text();
               apiReachable = {
                 status: 'error',
-                message: `API returned ${response.status}`,
-                detail: body.substring(0, 200),
+                message: `API returned ${connResult.status}`,
+                detail: connResult.message.substring(0, 200),
               };
             }
           } catch (err) {
@@ -179,7 +176,7 @@ export const jiraValidateConfigTool = tool({
           apiReachable = { status: 'error', message: 'Could not create Jira client' };
         }
       } else {
-        apiReachable = { status: 'missing', message: 'Skipped (missing environment variables)' };
+        apiReachable = { status: 'missing', message: 'Skipped (missing credentials)' };
       }
 
       const report: ValidationReport = {
