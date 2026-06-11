@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { execSync } from "node:child_process";
 
 const SIDEBAR_ORDER = 60;
-const REFRESH_INTERVAL_MS = 60_000;
+const REFRESH_INTERVAL_MS = 15_000;
 
 // ── Config loader ──────────────────────────────────────────
 
@@ -76,22 +76,34 @@ function JiraView(props: { api: TuiPluginApi }) {
 
     const branch = getBranch();
     const regex = cfg.issueKeyDetection?.regex || '[A-Z][A-Z0-9]+-\\d+';
-    const issueKey = extractKey(branch, regex);
-    if (!issueKey) {
+    const newKey = extractKey(branch, regex);
+    if (!newKey) {
       setError('no issue');
       return;
     }
 
-    setKey(issueKey);
+    if (newKey !== key()) {
+      // Branch/issue changed — clear old state
+      setSummary(null);
+      setStatus(null);
+      setError(null);
+    }
+
+    setKey(newKey);
 
     try {
-      const res = await fetch(`${baseUrl.replace(/\/+$/, '')}/rest/api/3/issue/${issueKey}?fields=summary,status`, {
+      const res = await fetch(`${baseUrl.replace(/\/+$/, '')}/rest/api/3/issue/${newKey}?fields=summary,status`, {
         headers: {
           Authorization: `Basic ${btoa(`${email}:${apiToken}`)}`,
           Accept: 'application/json',
         },
       });
-      if (!res.ok) { setError(`API ${res.status}`); return; }
+      if (!res.ok) {
+        setSummary(null);
+        setStatus(null);
+        setError(res.status === 404 ? 'not found' : `API ${res.status}`);
+        return;
+      }
       const data = await res.json() as any;
       setSummary(data.fields?.summary?.substring(0, 50) || null);
       setStatus(data.fields?.status?.name || null);
@@ -119,7 +131,7 @@ function JiraView(props: { api: TuiPluginApi }) {
           {key() || (error() === 'no issue' ? '—' : '')}
         </text>
       </box>
-      {key() && status() && (
+      {key() && !error() && status() && (
         <box flexDirection="row" justifyContent="space-between" width="100%">
           <text fg={theme().text}>{summary()}</text>
           <text fg={theme().success}>{status()}</text>
