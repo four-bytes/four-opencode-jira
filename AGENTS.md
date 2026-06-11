@@ -19,7 +19,7 @@ Pointer to central standards: `~/.personal-config/ai-shared/AGENTS.md` and meta-
 ## This Plugin
 - Plugin name: four-opencode-jira
 - Description: Jira REST API integration tools for opencode agents — 6 custom tools (get_issue, add_comment, transition, extract_key, sync_progress, validate_config), project-local .opencode/jira.json config, optional hook automation. Source: Perplexity P49.
-- Status: Sprint P15 (bootstrap)
+- Status: Sprint P15 (implemented)
 
 ## Workflow
 Issues → Branch → PR → Merge (feature workflow)

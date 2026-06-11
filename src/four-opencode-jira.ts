@@ -1,14 +1,30 @@
-// TODO: opencode plugin API integration
-// See https://docs.opencode.ai/plugins
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025-2026 Four Bytes
 
-// Env-gated debug logging (activate via CC_DEBUG=true):
-//   import { logDebugEvent } from "./debug-logger.js";
-//
-// Usage inside any plugin hook:
-//   logDebugEvent("hook.name", { relevantField: value });
-// Writes JSONL to ~/.cache/opencode/four-opencode-jira/debug-{date}.jsonl
+import type { Plugin } from '@opencode-ai/plugin';
+import { jiraGetIssueTool } from './tools/jira-get-issue';
+import { jiraAddCommentTool } from './tools/jira-add-comment';
+import { jiraTransitionIssueTool } from './tools/jira-transition-issue';
+import { jiraExtractIssueKeyTool } from './tools/jira-extract-issue-key';
+import { jiraSyncProgressTool } from './tools/jira-sync-progress';
+import { jiraValidateConfigTool } from './tools/jira-validate-config';
+import { createJiraHooks } from './hooks';
+import { logDebugEvent } from './debug-logger';
 
-export function register(): void {
-  // Register hooks and/or tools with the opencode plugin API
-  throw new Error("Not implemented");
-}
+const FourOpencodeJira: Plugin = async (_ctx) => {
+  logDebugEvent('plugin.init', { version: '0.2.0' });
+
+  return {
+    tool: {
+      jira_get_issue: jiraGetIssueTool,
+      jira_add_comment: jiraAddCommentTool,
+      jira_transition_issue: jiraTransitionIssueTool,
+      jira_extract_issue_key: jiraExtractIssueKeyTool,
+      jira_sync_progress: jiraSyncProgressTool,
+      jira_validate_config: jiraValidateConfigTool,
+    },
+    ...createJiraHooks(),
+  };
+};
+
+export default FourOpencodeJira;
