@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025-2026 Four Bytes
 
-import { logDebugEvent } from './debug-logger';
-
-// ────────────────────────────────────────────────────────────────
-// Comment Formatter — Templates for Jira comments
-// ────────────────────────────────────────────────────────────────
+/**
+ * Jira comment formatter — always produces ADF (Atlassian Document Format).
+ * Jira Cloud requires ADF JSON for all comments in the new editor.
+ */
 
 export interface CommentData {
   summary: string;
@@ -13,89 +12,257 @@ export interface CommentData {
   statusHint?: string;
 }
 
-/**
- * Format a comment using the specified template.
- *
- * Templates:
- *   - "markdown": Rich markdown with emoji, timestamp
- *   - "plain": Simple text block
- *   - "adf": Atlassian Document Format JSON (stringified)
- */
-export function formatComment(template: string, data: CommentData): string {
-  switch (template) {
-    case 'markdown':
-      return formatMarkdown(data);
-    case 'adf':
-      return JSON.stringify(formatADF(data));
-    case 'plain':
-    default:
-      return formatPlain(data);
+/** ADF document node types */
+interface ADFDoc {
+  type: "doc";
+  version: number;
+  content: ADFBlock[];
+}
+type ADFBlock = ADFParagraph | ADFBulletList | ADFCodeBlock;
+interface ADFParagraph {
+  type: "paragraph";
+  content: ADFInline[];
+}
+interface ADFBulletList {
+  type: "bulletList";
+  content: ADFListItem[];
+}
+interface ADFListItem {
+  type: "listItem";
+  content: ADFParagraph[];
+}
+interface ADFCodeBlock {
+  type: "codeBlock";
+  attrs: { language: string };
+  content: ADFText[];
+}
+interface ADFText {
+  type: "text";
+  text: string;
+  marks?: ADFMark[];
+}
+type ADFInline = ADFText;
+type ADFMark = { type: "strong" } | { type: "em" } | { type: "code" };
+
+/** Convert a single line of text to ADF inline content, handling **bold** and `code` */
+function parseInline(text: string): ADFInline[] {
+  const result: ADFInline[] = [];
+  // Match **bold** or `code`
+  const regex = /(\*\*(.+?)\*\*|`(.+?)`)/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = regex.exec(text)) !== null) {
+    // Text before the match
+    if (match.index > lastIndex) {
+      const before = text.slice(lastIndex, match.index);
+      if (before) result.push({ type: "text", text: before });
+    }
+
+    if (match[2]) {
+      // **bold**
+      result.push({ type: "text", text: match[2], marks: [{ type: "strong" }] });
+    } else if (match[3]) {
+      // `code`
+      result.push({ type: "text", text: match[3], marks: [{ type: "code" }] });
+    }
+
+    lastIndex = regex.lastIndex;
   }
+
+  // Remaining text
+  if (lastIndex < text.length) {
+    result.push({ type: "text", text: text.slice(lastIndex) });
+  }
+
+  // If no matches at all, return the whole text
+  if (result.length === 0 && text) {
+    result.push({ type: "text", text });
+  }
+
+  return result;
 }
 
-/**
- * Format as Markdown (most common template).
- */
-function formatMarkdown(data: CommentData): string {
-  const lines: string[] = [];
+/** Convert a text body to ADF blocks (paragraphs, bullet lists, code blocks) */
+function textToADF(body: string): ADFBlock[] {
+  const blocks: ADFBlock[] = [];
+  const lines = body.split("\n");
+  const bulletItems: string[] = [];
+  let inCodeBlock = false;
+  let codeLines: string[] = [];
+  let codeLanguage = "";
 
-  if (data.summary) lines.push(data.summary);
-
-  if (data.details) {
-    if (lines.length > 0) lines.push('');
-    lines.push(data.details);
-  }
-
-  logDebugEvent('comment_formatter.markdown', { summary: data.summary.substring(0, 80) });
-  return lines.join('\n');
-}
-
-/**
- * Format as plain text.
- */
-function formatPlain(data: CommentData): string {
-  const lines: string[] = [];
-
-  if (data.summary) lines.push(data.summary);
-
-  if (data.details) {
-    if (lines.length > 0) lines.push('');
-    lines.push(data.details);
-  }
-
-  return lines.join('\n');
-}
-
-/**
- * Format as Atlassian Document Format (ADF) JSON.
- *
- * This produces a valid ADF document that can be used
- * directly in the Jira REST API comment body.
- */
-function formatADF(data: CommentData): object {
-  const content: object[] = [];
-
-  // Summary
-  content.push({
-    type: 'paragraph',
-    content: [{ type: 'text', text: data.summary }],
-  });
-
-  // Details
-  if (data.details) {
-    for (const line of data.details.split('\n')) {
-      content.push({
-        type: 'paragraph',
-        content: [{ type: 'text', text: line }],
+  function flushBullets(): void {
+    if (bulletItems.length > 0) {
+      blocks.push({
+        type: "bulletList",
+        content: bulletItems.map(item => ({
+          type: "listItem",
+          content: [{ type: "paragraph", content: parseInline(item) }],
+        })),
       });
+      bulletItems.length = 0;
     }
   }
 
-  logDebugEvent('comment_formatter.adf', { summary: data.summary.substring(0, 80) });
+  function flushCodeBlock(): void {
+    if (codeLines.length > 0) {
+      blocks.push({
+        type: "codeBlock",
+        attrs: { language: codeLanguage || "plain" },
+        content: [{ type: "text", text: codeLines.join("\n") }],
+      });
+      codeLines = [];
+    }
+    inCodeBlock = false;
+  }
 
-  return {
-    type: 'doc',
-    version: 1,
-    content,
-  };
+  function flushParagraph(text: string): void {
+    if (text.trim()) {
+      blocks.push({ type: "paragraph", content: parseInline(text) });
+    }
+  }
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    // Code block fences
+    if (line.trim().startsWith("```")) {
+      if (inCodeBlock) {
+        flushCodeBlock();
+      } else {
+        flushBullets();
+        inCodeBlock = true;
+        codeLanguage = line.trim().slice(3).trim() || "plain";
+      }
+      continue;
+    }
+
+    if (inCodeBlock) {
+      codeLines.push(line);
+      continue;
+    }
+
+    // Bullet list items (- or *)
+    const bulletMatch = line.match(/^[\s]*[-*]\s+(.+)/);
+    if (bulletMatch) {
+      bulletItems.push(bulletMatch[1]);
+      continue;
+    }
+
+    // If we were collecting bullets and this line isn't a bullet
+    flushBullets();
+
+    // Empty line → paragraph break
+    if (line.trim() === "") {
+      continue;
+    }
+
+    // Regular paragraph
+    flushParagraph(line);
+  }
+
+  // Flush any remaining
+  flushBullets();
+  flushCodeBlock();
+
+  return blocks;
+}
+
+/** Build a full ADF document from summary + details */
+function buildADF(data: CommentData, statusHint?: string): ADFDoc {
+  const content: ADFBlock[] = [];
+
+  // Status hint as bold italic paragraph
+  if (statusHint) {
+    content.push({
+      type: "paragraph",
+      content: [{ type: "text", text: statusHint, marks: [{ type: "strong" }] }],
+    });
+  }
+
+  // Summary as paragraph
+  if (data.summary) {
+    content.push(...textToADF(data.summary));
+  }
+
+  // Details
+  if (data.details) {
+    content.push(...textToADF(data.details));
+  }
+
+  return { type: "doc", version: 1, content };
+}
+
+/**
+ * Format a comment for Jira API.
+ *
+ * All formats produce ADF objects. The `addComment` method posts ADF JSON.
+ * Jira Cloud no longer accepts plain Markdown — ADF is required.
+ *
+ * Returns a raw ADF object (not stringified — addComment wraps it).
+ */
+export function formatComment(
+  template: string,
+  data: CommentData,
+): string | object {
+  const status = data.statusHint;
+
+  switch (template) {
+    case "markdown": {
+      // Parse markdown-like text into ADF (handles **bold**, - lists, ```code blocks```)
+      return buildADF(data, status);
+    }
+
+    case "plain": {
+      // Plain text with no formatting
+      const doc: ADFDoc = {
+        type: "doc",
+        version: 1,
+        content: [],
+      };
+      if (status) {
+        doc.content.push({
+          type: "paragraph",
+          content: [{ type: "text", text: status, marks: [{ type: "strong" }] }],
+        });
+      }
+      if (data.summary) {
+        doc.content.push({
+          type: "paragraph",
+          content: [{ type: "text", text: data.summary }],
+        });
+      }
+      if (data.details) {
+        for (const line of data.details.split("\n")) {
+          if (line.trim()) {
+            doc.content.push({
+              type: "paragraph",
+              content: [{ type: "text", text: line }],
+            });
+          }
+        }
+      }
+      return doc;
+    }
+
+    case "adf": {
+      // User provides pre-built ADF — wrap in doc if needed
+      if (data.details) {
+        try {
+          const parsed = JSON.parse(data.details);
+          // Check if it's already a valid ADF doc
+          if (parsed && parsed.type === "doc" && parsed.version && Array.isArray(parsed.content)) {
+            return parsed;
+          }
+        } catch {
+          // Not valid JSON — fall back to buildADF
+        }
+      }
+      return buildADF(data, status);
+    }
+
+    default:
+      return buildADF(data, status);
+  }
 }
