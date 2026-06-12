@@ -300,6 +300,42 @@ export class JiraClient {
       return { error: true, status: 0, message: `Network error: ${msg}` };
     }
   }
+
+  /**
+   * Search Jira issues with JQL.
+   * GET /rest/api/3/search?jql={jql}&fields=summary,status,assignee
+   */
+  async searchIssues(jql: string, maxResults: number = 10): Promise<JiraIssue[] | JiraError> {
+    const url = `${this.baseUrl}/rest/api/3/search?jql=${encodeURIComponent(jql)}&fields=summary,status,assignee&maxResults=${maxResults}`;
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': this.authHeader,
+          'Accept': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const body = await response.text();
+        logDebugEvent('jira_client.searchIssues.error', { jql, status: response.status, body: body.substring(0, 500) });
+        return {
+          error: true,
+          status: response.status,
+          message: `Jira API error ${response.status}: ${body.substring(0, 200)}`,
+        };
+      }
+
+      const data = await response.json() as { issues: JiraIssue[] };
+      logDebugEvent('jira_client.searchIssues.success', { jql, count: data.issues?.length || 0 });
+      return data.issues || [];
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logDebugEvent('jira_client.searchIssues.exception', { jql, error: msg });
+      return { error: true, status: 0, message: `Network error: ${msg}` };
+    }
+  }
 }
 
 // ────────────────────────────────────────────────────────────────

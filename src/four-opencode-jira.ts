@@ -11,6 +11,7 @@ import { jiraValidateConfigTool } from './tools/jira-validate-config';
 import { jiraAssignIssueTool } from './tools/jira-assign-issue';
 import { jiraGetTransitionsTool } from './tools/jira-get-transitions';
 import { jiraSearchUsersTool } from './tools/jira-search-users';
+import { jiraSearchIssuesTool } from './tools/jira-search-issues';
 import { createJiraHooks } from './hooks';
 import { logDebugEvent } from './debug-logger';
 
@@ -28,6 +29,7 @@ const FourOpencodeJira: Plugin = async (_ctx) => {
       jira_assign_issue: jiraAssignIssueTool,
       jira_get_transitions: jiraGetTransitionsTool,
       jira_search_users: jiraSearchUsersTool,
+      jira_search_issues: jiraSearchIssuesTool,
     },
     ...createJiraHooks(),
   };

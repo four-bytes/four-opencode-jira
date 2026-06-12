@@ -58,6 +58,7 @@ function JiraView(props: { api: TuiPluginApi }) {
   const [key, setKey] = createSignal<string | null>(null);
   const [status, setStatus] = createSignal<string | null>(null);
   const [summary, setSummary] = createSignal<string | null>(null);
+  const [assignee, setAssignee] = createSignal<string | null>(null);
   const [error, setError] = createSignal<string | null>(null);
 
   const fetchIssue = async () => {
@@ -79,13 +80,14 @@ function JiraView(props: { api: TuiPluginApi }) {
       // Branch/issue changed — clear old state
       setSummary(null);
       setStatus(null);
+      setAssignee(null);
       setError(null);
     }
 
     setKey(newKey);
 
     try {
-      const res = await fetch(`${baseUrl.replace(/\/+$/, '')}/rest/api/3/issue/${newKey}?fields=summary,status`, {
+      const res = await fetch(`${baseUrl.replace(/\/+$/, '')}/rest/api/3/issue/${newKey}?fields=summary,status,assignee`, {
         headers: {
           Authorization: `Basic ${btoa(`${email}:${apiToken}`)}`,
           Accept: 'application/json',
@@ -100,6 +102,7 @@ function JiraView(props: { api: TuiPluginApi }) {
       const data = await res.json() as any;
       setSummary(data.fields?.summary?.substring(0, 50) || null);
       setStatus(data.fields?.status?.name || null);
+      setAssignee(data.fields?.assignee?.displayName || 'unassigned');
       setError(null);
     } catch {
       setError('unreachable');
@@ -112,27 +115,29 @@ function JiraView(props: { api: TuiPluginApi }) {
     return () => clearInterval(timer);
   });
 
-  const jiraUrl = key() && loadConfig()
-    ? `${(loadConfig()!.baseUrl || '').replace(/\/+$/, '')}/browse/${key()}`
-    : null;
+  const jiraUrl = () => {
+    const k = key();
+    const cfg = loadConfig();
+    if (!k || !cfg?.baseUrl) return null;
+    return `${cfg.baseUrl.replace(/\/+$/, '')}/browse/${k}`;
+  };
 
   return (
     <box flexDirection="column" gap={0}>
       <box flexDirection="row" justifyContent="space-between" width="100%">
         <text fg={theme().accent}><b>JIRA</b></text>
-        <text fg={theme().textMuted}>{key() || "—"}</text>
+        <text fg={theme().textMuted}>
+          {key() && jiraUrl() ? <a href={jiraUrl()!}>{key()}</a> : key() || "—"}
+        </text>
       </box>
       {key() && !error() && status() && (
         <box flexDirection="column">
           <text fg={theme().text}>{summary()}</text>
           <box flexDirection="row" justifyContent="space-between" width="100%">
             <text fg={theme().success}>{status()}</text>
-            <text fg={theme().accent}>🔗</text>
+            <text fg={theme().textMuted}>{assignee()}</text>
           </box>
         </box>
-      )}
-      {key() && !error() && jiraUrl && (
-        <text fg={theme().accent}>🔗 View in Jira</text>
       )}
       {error() && error() !== 'no issue' && (
         <text fg={theme().error}>{error()}</text>
