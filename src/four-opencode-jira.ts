@@ -8,6 +8,8 @@ import { jiraTransitionIssueTool } from './tools/jira-transition-issue';
 import { jiraExtractIssueKeyTool } from './tools/jira-extract-issue-key';
 import { jiraSyncProgressTool } from './tools/jira-sync-progress';
 import { jiraValidateConfigTool } from './tools/jira-validate-config';
+import { jiraAssignIssueTool } from './tools/jira-assign-issue';
+import { jiraGetTransitionsTool } from './tools/jira-get-transitions';
 import { createJiraHooks } from './hooks';
 import { logDebugEvent } from './debug-logger';
 
@@ -22,6 +24,8 @@ const FourOpencodeJira: Plugin = async (_ctx) => {
       jira_extract_issue_key: jiraExtractIssueKeyTool,
       jira_sync_progress: jiraSyncProgressTool,
       jira_validate_config: jiraValidateConfigTool,
+      jira_assign_issue: jiraAssignIssueTool,
+      jira_get_transitions: jiraGetTransitionsTool,
     },
     ...createJiraHooks(),
   };

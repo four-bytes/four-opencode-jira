@@ -147,6 +147,46 @@ export class JiraClient {
   }
 
   /**
+   * Assign (or unassign) a Jira issue.
+   * PUT /rest/api/3/issue/{issueKey}/assignee
+   *
+   * @param issueKey - The issue key (e.g. "PROJ-42")
+   * @param accountId - Jira Cloud account ID, or null to unassign
+   */
+  async assignIssue(issueKey: string, accountId: string | null): Promise<true | JiraError> {
+    const url = `${this.baseUrl}/rest/api/3/issue/${encodeURIComponent(issueKey)}/assignee`;
+
+    try {
+      const response = await fetch(url, {
+        method: 'PUT',
+        headers: {
+          'Authorization': this.authHeader,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ accountId }),
+      });
+
+      if (response.status !== 204 && !response.ok) {
+        const body = await response.text();
+        logDebugEvent('jira_client.assignIssue.error', { issueKey, accountId, status: response.status, body: body.substring(0, 500) });
+        return {
+          error: true,
+          status: response.status,
+          message: `Jira API error ${response.status}: ${body.substring(0, 200)}`,
+        };
+      }
+
+      logDebugEvent('jira_client.assignIssue.success', { issueKey, accountId });
+      return true;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logDebugEvent('jira_client.assignIssue.exception', { issueKey, error: msg });
+      return { error: true, status: 0, message: `Network error: ${msg}` };
+    }
+  }
+
+  /**
    * Test API connectivity by calling /myself.
    * Returns true on success, JiraError on failure.
    */
