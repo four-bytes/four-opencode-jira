@@ -264,6 +264,42 @@ export class JiraClient {
       };
     }
   }
+
+  /**
+   * Search for Jira users by query string.
+   * GET /rest/api/3/users/search?query={query}
+   */
+  async searchUsers(query: string): Promise<Array<{ accountId: string; displayName: string; emailAddress?: string }> | JiraError> {
+    const url = `${this.baseUrl}/rest/api/3/users/search?query=${encodeURIComponent(query)}`;
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': this.authHeader,
+          'Accept': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const body = await response.text();
+        logDebugEvent('jira_client.searchUsers.error', { query, status: response.status, body: body.substring(0, 500) });
+        return {
+          error: true,
+          status: response.status,
+          message: `Jira API error ${response.status}: ${body.substring(0, 200)}`,
+        };
+      }
+
+      const data = await response.json() as Array<{ accountId: string; displayName: string; emailAddress?: string }>;
+      logDebugEvent('jira_client.searchUsers.success', { query, count: data.length });
+      return data;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logDebugEvent('jira_client.searchUsers.exception', { query, error: msg });
+      return { error: true, status: 0, message: `Network error: ${msg}` };
+    }
+  }
 }
 
 // ────────────────────────────────────────────────────────────────
