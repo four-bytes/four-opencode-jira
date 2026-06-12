@@ -8,6 +8,8 @@ import { execSync } from "node:child_process";
 const SIDEBAR_ORDER = 60;
 const REFRESH_INTERVAL_MS = 15_000;
 
+const [showSidebar, setShowSidebar] = createSignal(true);
+
 // ── Config loader ──────────────────────────────────────────
 
 interface JiraTuiConfig {
@@ -59,20 +61,11 @@ function JiraView(props: { api: TuiPluginApi }) {
   const [error, setError] = createSignal<string | null>(null);
 
   const fetchIssue = async () => {
-    const cfg = loadConfig();
-    if (!cfg || cfg.enabled === false) {
-      setError('disabled');
-      return;
-    }
-
+    const cfg = loadConfig()!;
     const baseUrl = cfg.baseUrl || process.env[cfg.baseUrlEnv || 'JIRA_BASE_URL'];
     const email = cfg.email || process.env[cfg.emailEnv || 'JIRA_EMAIL'];
     const apiToken = cfg.apiToken || process.env[cfg.apiTokenEnv || 'JIRA_API_TOKEN'];
-
-    if (!baseUrl || !email || !apiToken) {
-      setError('no auth');
-      return;
-    }
+    if (!baseUrl || !email || !apiToken) return;
 
     const branch = getBranch();
     const regex = cfg.issueKeyDetection?.regex || '[A-Z][A-Z0-9]+-\\d+';
@@ -151,6 +144,12 @@ const tui: TuiPlugin = async (api) => {
     order: SIDEBAR_ORDER,
     slots: {
       sidebar_content(_ctx, props) {
+        if (!showSidebar()) return null;
+        const cfg = loadConfig();
+        if (!cfg || cfg.enabled === false) {
+          setTimeout(() => setShowSidebar(false), 3000);
+          return <text fg={api.theme.current.textMuted}>no jira config</text>;
+        }
         return <JiraView api={api} />;
       },
     },
