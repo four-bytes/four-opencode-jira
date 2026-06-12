@@ -132,7 +132,7 @@ function JiraView(props: { api: TuiPluginApi }) {
         </box>
       )}
       {key() && !error() && jiraUrl && (
-        <text fg={theme().accent}>🔗 View in Jira</text>
+        <text fg={theme().accent}>{jiraUrl.length > 50 ? jiraUrl.substring(0, 50) + '…' : jiraUrl}</text>
       )}
       {error() && error() !== 'no issue' && (
         <text fg={theme().error}>{error()}</text>
