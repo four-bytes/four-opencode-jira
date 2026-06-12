@@ -132,7 +132,6 @@ function JiraView(props: { api: TuiPluginApi }) {
           <text fg={theme().text}>{summary()}</text>
           <box flexDirection="row" justifyContent="space-between" width="100%">
             <text fg={theme().success}>{status()}</text>
-            <text fg={theme().accent}>🔗</text>
           </box>
         </box>
       )}
