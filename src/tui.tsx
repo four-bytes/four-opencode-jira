@@ -120,18 +120,22 @@ function JiraView(props: { api: TuiPluginApi }) {
     <box flexDirection="column" gap={0}>
       <box flexDirection="row" justifyContent="space-between" width="100%">
         <text fg={theme().accent}><b>JIRA</b></text>
-        <text fg={key() ? theme().textMuted : theme().textMuted}>
-          {key() || (error() === 'no issue' ? '—' : '')}
-        </text>
+        <text fg={theme().textMuted}>{key() || "—"}</text>
       </box>
       {key() && !error() && status() && (
-        <box flexDirection="row" justifyContent="space-between" width="100%">
+        <box flexDirection="column">
           <text fg={theme().text}>{summary()}</text>
-          <text fg={theme().success}>{status()}</text>
+          <box flexDirection="row" justifyContent="space-between" width="100%">
+            <text fg={theme().success}>{status()}</text>
+            <text fg={theme().accent}>🔗</text>
+          </box>
         </box>
       )}
+      {key() && !error() && jiraUrl && (
+        <text fg={theme().accent}>🔗 View in Jira</text>
+      )}
       {error() && error() !== 'no issue' && (
-        <text fg={theme().textMuted}>{error()}</text>
+        <text fg={theme().error}>{error()}</text>
       )}
     </box>
   );
