@@ -112,15 +112,20 @@ function JiraView(props: { api: TuiPluginApi }) {
     return () => clearInterval(timer);
   });
 
-  const jiraUrl = key() && loadConfig()
-    ? `${(loadConfig()!.baseUrl || '').replace(/\/+$/, '')}/browse/${key()}`
-    : null;
+  const jiraUrl = () => {
+    const k = key();
+    const cfg = loadConfig();
+    if (!k || !cfg?.baseUrl) return null;
+    return `${cfg.baseUrl.replace(/\/+$/, '')}/browse/${k}`;
+  };
 
   return (
     <box flexDirection="column" gap={0}>
       <box flexDirection="row" justifyContent="space-between" width="100%">
         <text fg={theme().accent}><b>JIRA</b></text>
-        <text fg={theme().textMuted}>{key() || "—"}</text>
+        <text fg={theme().textMuted}>
+          {key() && jiraUrl() ? <a href={jiraUrl()!}>{key()}</a> : key() || "—"}
+        </text>
       </box>
       {key() && !error() && status() && (
         <box flexDirection="column">
@@ -130,9 +135,6 @@ function JiraView(props: { api: TuiPluginApi }) {
             <text fg={theme().accent}>🔗</text>
           </box>
         </box>
-      )}
-      {key() && !error() && jiraUrl && (
-        <text fg={theme().accent}>{jiraUrl.length > 50 ? jiraUrl.substring(0, 50) + '…' : jiraUrl}</text>
       )}
       {error() && error() !== 'no issue' && (
         <text fg={theme().error}>{error()}</text>
