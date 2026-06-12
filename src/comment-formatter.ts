@@ -18,7 +18,7 @@ interface ADFDoc {
   version: number;
   content: ADFBlock[];
 }
-type ADFBlock = ADFParagraph | ADFBulletList | ADFCodeBlock | ADFHeading;
+type ADFBlock = ADFParagraph | ADFBulletList | ADFCodeBlock | ADFHeading | ADFOrderedList | ADFBlockquote | ADFRule | ADFTable | ADFMediaSingle;
 interface ADFParagraph {
   type: "paragraph";
   content: ADFInline[];
@@ -26,6 +26,38 @@ interface ADFParagraph {
 interface ADFBulletList {
   type: "bulletList";
   content: ADFListItem[];
+}
+interface ADFOrderedList {
+  type: "orderedList";
+  content: ADFListItem[];
+}
+interface ADFBlockquote {
+  type: "blockquote";
+  content: ADFParagraph[];
+}
+interface ADFRule {
+  type: "rule";
+}
+interface ADFTable {
+  type: "table";
+  attrs: { isNumberColumnEnabled: boolean; layout: string };
+  content: ADFTableRow[];
+}
+interface ADFTableRow {
+  type: "tableRow";
+  content: ADFTableCell[];
+}
+interface ADFTableCell {
+  type: "tableCell";
+  content: ADFParagraph[];
+}
+interface ADFMediaSingle {
+  type: "mediaSingle";
+  content: ADFMedia[];
+}
+interface ADFMedia {
+  type: "media";
+  attrs: { url: string; type: string; alt?: string };
 }
 interface ADFListItem {
   type: "listItem";
@@ -46,19 +78,22 @@ interface ADFText {
   text: string;
   marks?: ADFMark[];
 }
+interface ADFLinkMark {
+  type: "link";
+  attrs: { href: string; title?: string };
+}
 type ADFInline = ADFText;
-type ADFMark = { type: "strong" } | { type: "em" } | { type: "code" };
+type ADFMark = { type: "strong" } | { type: "em" } | { type: "code" } | ADFLinkMark;
 
-/** Convert a single line of text to ADF inline content, handling **bold** and `code` */
+/** Convert a single line of text to ADF inline content, handling **bold**, `code`, and [link](url) */
 function parseInline(text: string): ADFInline[] {
   const result: ADFInline[] = [];
-  // Match **bold** or `code`
-  const regex = /(\*\*(.+?)\*\*|`(.+?)`)/g;
+  // Match **bold**, `code`, or [link](url)
+  const regex = /(\*\*(.+?)\*\*|`(.+?)`|\[(.+?)\]\((.+?)\))/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
   while ((match = regex.exec(text)) !== null) {
-    // Text before the match
     if (match.index > lastIndex) {
       const before = text.slice(lastIndex, match.index);
       if (before) result.push({ type: "text", text: before });
@@ -70,32 +105,34 @@ function parseInline(text: string): ADFInline[] {
     } else if (match[3]) {
       // `code`
       result.push({ type: "text", text: match[3], marks: [{ type: "code" }] });
+    } else if (match[4] && match[5]) {
+      // [text](url) — link
+      result.push({ type: "text", text: match[4], marks: [{ type: "link", attrs: { href: match[5] } }] });
     }
 
     lastIndex = regex.lastIndex;
   }
 
-  // Remaining text
   if (lastIndex < text.length) {
     result.push({ type: "text", text: text.slice(lastIndex) });
   }
-
-  // If no matches at all, return the whole text
   if (result.length === 0 && text) {
     result.push({ type: "text", text });
   }
-
   return result;
 }
 
-/** Convert a text body to ADF blocks (paragraphs, bullet lists, code blocks) */
+/** Convert a text body to ADF blocks (paragraphs, bullet lists, code blocks, etc.) */
 function textToADF(body: string): ADFBlock[] {
   const blocks: ADFBlock[] = [];
   const lines = body.split("\n");
   const bulletItems: string[] = [];
+  const orderedItems: string[] = [];
   let inCodeBlock = false;
   let codeLines: string[] = [];
   let codeLanguage = "";
+  let inTable = false;
+  let tableRows: ADFTableRow[] = [];
 
   function flushBullets(): void {
     if (bulletItems.length > 0) {
@@ -107,6 +144,31 @@ function textToADF(body: string): ADFBlock[] {
         })),
       });
       bulletItems.length = 0;
+    }
+  }
+
+  function flushOrdered(): void {
+    if (orderedItems.length > 0) {
+      blocks.push({
+        type: "orderedList",
+        content: orderedItems.map(item => ({
+          type: "listItem",
+          content: [{ type: "paragraph", content: parseInline(item) }],
+        })),
+      });
+      orderedItems.length = 0;
+    }
+  }
+
+  function flushTable(): void {
+    if (inTable && tableRows.length > 0) {
+      blocks.push({
+        type: "table",
+        attrs: { isNumberColumnEnabled: false, layout: "default" },
+        content: tableRows,
+      });
+      tableRows = [];
+      inTable = false;
     }
   }
 
@@ -137,6 +199,8 @@ function textToADF(body: string): ADFBlock[] {
         flushCodeBlock();
       } else {
         flushBullets();
+        flushOrdered();
+        flushTable();
         inCodeBlock = true;
         codeLanguage = line.trim().slice(3).trim() || "plain";
       }
@@ -154,6 +218,8 @@ function textToADF(body: string): ADFBlock[] {
       const level = headingMatch[1].length;
       const text = headingMatch[2];
       flushBullets();
+      flushOrdered();
+      flushTable();
       blocks.push({
         type: "heading",
         attrs: { level },
@@ -165,12 +231,83 @@ function textToADF(body: string): ADFBlock[] {
     // Bullet list items (- or *)
     const bulletMatch = line.match(/^[\s]*[-*]\s+(.+)/);
     if (bulletMatch) {
+      flushOrdered();
+      flushTable();
       bulletItems.push(bulletMatch[1]);
       continue;
     }
 
+    // Ordered list (1. 2. 3. etc.)
+    const orderedMatch = line.match(/^[\s]*(\d+)\.\s+(.+)/);
+    if (orderedMatch) {
+      flushBullets();
+      flushTable();
+      orderedItems.push(orderedMatch[2]);
+      continue;
+    }
+
+    // Blockquote
+    if (line.trim().startsWith("> ")) {
+      flushBullets();
+      flushOrdered();
+      flushTable();
+      const content = line.trim().slice(2);
+      blocks.push({
+        type: "blockquote",
+        content: [{ type: "paragraph", content: parseInline(content) }],
+      });
+      continue;
+    }
+
+    // Horizontal rule
+    if (line.trim().match(/^(-{3,}|\*{3,}|_{3,})$/)) {
+      flushBullets();
+      flushOrdered();
+      flushTable();
+      blocks.push({ type: "rule" });
+      continue;
+    }
+
+    // Image
+    const imageMatch = line.trim().match(/^!\[(.+?)\]\((.+?)\)$/);
+    if (imageMatch) {
+      flushBullets();
+      flushOrdered();
+      flushTable();
+      blocks.push({
+        type: "mediaSingle",
+        content: [{
+          type: "media",
+          attrs: { url: imageMatch[2], type: "image", alt: imageMatch[1] },
+        }],
+      });
+      continue;
+    }
+
+    // Table row
+    const tableCells = line.split("|").filter(c => c.trim()).map(c => c.trim());
+    if (tableCells.length >= 2 && line.includes("|") && !line.trim().startsWith("```")) {
+      flushBullets();
+      flushOrdered();
+      if (!inTable) {
+        inTable = true;
+        tableRows = [];
+      }
+      tableRows.push({
+        type: "tableRow",
+        content: tableCells.map(cell => ({
+          type: "tableCell",
+          content: [{ type: "paragraph", content: parseInline(cell) }],
+        })),
+      });
+      continue;
+    } else if (inTable && tableRows.length > 0) {
+      flushTable();
+    }
+
     // If we were collecting bullets and this line isn't a bullet
     flushBullets();
+    flushOrdered();
 
     // Empty line → paragraph break
     if (line.trim() === "") {
@@ -183,6 +320,8 @@ function textToADF(body: string): ADFBlock[] {
 
   // Flush any remaining
   flushBullets();
+  flushOrdered();
+  flushTable();
   flushCodeBlock();
 
   return blocks;
