@@ -58,6 +58,7 @@ function JiraView(props: { api: TuiPluginApi }) {
   const [key, setKey] = createSignal<string | null>(null);
   const [status, setStatus] = createSignal<string | null>(null);
   const [summary, setSummary] = createSignal<string | null>(null);
+  const [assignee, setAssignee] = createSignal<string | null>(null);
   const [error, setError] = createSignal<string | null>(null);
 
   const fetchIssue = async () => {
@@ -79,13 +80,14 @@ function JiraView(props: { api: TuiPluginApi }) {
       // Branch/issue changed — clear old state
       setSummary(null);
       setStatus(null);
+      setAssignee(null);
       setError(null);
     }
 
     setKey(newKey);
 
     try {
-      const res = await fetch(`${baseUrl.replace(/\/+$/, '')}/rest/api/3/issue/${newKey}?fields=summary,status`, {
+      const res = await fetch(`${baseUrl.replace(/\/+$/, '')}/rest/api/3/issue/${newKey}?fields=summary,status,assignee`, {
         headers: {
           Authorization: `Basic ${btoa(`${email}:${apiToken}`)}`,
           Accept: 'application/json',
@@ -100,6 +102,7 @@ function JiraView(props: { api: TuiPluginApi }) {
       const data = await res.json() as any;
       setSummary(data.fields?.summary?.substring(0, 50) || null);
       setStatus(data.fields?.status?.name || null);
+      setAssignee(data.fields?.assignee?.displayName || 'unassigned');
       setError(null);
     } catch {
       setError('unreachable');
@@ -132,6 +135,7 @@ function JiraView(props: { api: TuiPluginApi }) {
           <text fg={theme().text}>{summary()}</text>
           <box flexDirection="row" justifyContent="space-between" width="100%">
             <text fg={theme().success}>{status()}</text>
+            <text fg={theme().textMuted}>{assignee()}</text>
           </box>
         </box>
       )}
