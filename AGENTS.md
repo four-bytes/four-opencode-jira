@@ -1,6 +1,6 @@
 # four-opencode-jira — AGENTS.md
 
-Pointer to central standards: `~/.personal-config/ai-shared/AGENTS.md` and meta-repo `four-bytes/opencode-plugins` AGENTS.md.
+Pointer to central standards: `~/ai-shared-rules/AGENTS.md` and meta-repo `four-bytes/opencode-plugins` AGENTS.md.
 
 ## Convention
 - Source file: `src/four-opencode-jira.ts` (NOT `src/index.ts`)
@@ -14,7 +14,7 @@ Pointer to central standards: `~/.personal-config/ai-shared/AGENTS.md` and meta-
 - `dist/` is gitignored, freshly built on `npm publish`
 
 ## Standards
-`~/.personal-config/ai-shared/AGENTS.md`
+`~/ai-shared-rules/AGENTS.md`
 
 ## This Plugin
 - Plugin name: four-opencode-jira
@@ -23,3 +23,5 @@ Pointer to central standards: `~/.personal-config/ai-shared/AGENTS.md` and meta-
 
 ## Workflow
 Issues → Branch → PR → Merge (feature workflow)
+
+- **Console logging:** Plugins MUST use `_client?.app?.log()` for all logging in plugin mode — `console.log` / `console.warn` / `console.error` is ONLY permitted for the initial startup `"init"` message. Console output in plugin mode breaks the terminal UI.
