@@ -46,16 +46,22 @@ export const jiraCreateIssueTool = tool({
       const client = createJiraClient(config);
       if (!client) {
         const missing: string[] = [];
-        if (!process.env[config.baseUrlEnv]) missing.push(config.baseUrlEnv);
-        if (!process.env[config.emailEnv]) missing.push(config.emailEnv);
-        if (!process.env[config.apiTokenEnv]) missing.push(config.apiTokenEnv);
-        return `Jira not configured. Missing environment variables: ${missing.join(', ')}.`;
+        const hasBaseUrl = config.baseUrl || process.env[config.baseUrlEnv];
+        const hasEmail = config.email || process.env[config.emailEnv];
+        const hasApiToken = config.apiToken || process.env[config.apiTokenEnv];
+        if (!hasBaseUrl) missing.push(config.baseUrlEnv);
+        if (!hasEmail) missing.push(config.emailEnv);
+        if (!hasApiToken) missing.push(config.apiTokenEnv);
+        return `Jira not configured. Missing: ${missing.length ? missing.join(', ') : 'unknown credentials'}.`;
       }
 
       // Convert markdown description to ADF
-      const descAdf = description
-        ? (formatComment(config.comments.template, { summary: '', details: description }) as object)
+      const formatted = description
+        ? formatComment('adf', { summary: '', details: description })
         : undefined;
+      const descAdf = typeof formatted === 'string'
+        ? { type: 'doc', version: 1, content: [{ type: 'paragraph', content: [{ type: 'text', text: formatted }] }] }
+        : formatted;
 
       // Parse comma-separated labels into array
       const labels = labelsRaw
