@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025-2026 Four Bytes
 
-import type { JiraConfig, JiraIssue, CommentResult, Transition, JiraError } from './types';
+import type { JiraConfig, JiraIssue, CommentResult, Transition, JiraError, CreatedIssue } from './types';
 import { getCredential } from './config';
 import { logDebugEvent } from './debug-logger';
 
@@ -334,6 +334,78 @@ export class JiraClient {
       const msg = err instanceof Error ? err.message : String(err);
       logDebugEvent('jira_client.searchIssues.exception', { jql, error: msg });
       return { error: true, status: 0, message: `Network error: ${msg}` };
+    }
+  }
+
+  /**
+   * Create a new Jira issue.
+   * POST /rest/api/3/issue
+   */
+  async createIssue(params: {
+    projectKey: string;
+    summary: string;
+    description?: object;
+    issueType?: string;
+    priority?: string;
+    labels?: string[];
+    assignee?: string;
+  }): Promise<CreatedIssue | JiraError> {
+    const url = `${this.baseUrl}/rest/api/3/issue`;
+
+    // Build fields dynamically — only include optional fields when they have values
+    const fields: Record<string, unknown> = {
+      project: { key: params.projectKey },
+      summary: params.summary,
+      issuetype: { name: params.issueType || 'Task' },
+    };
+
+    if (params.description) {
+      fields.description = params.description;
+    }
+    if (params.priority) {
+      fields.priority = { name: params.priority };
+    }
+    if (params.labels && params.labels.length > 0) {
+      fields.labels = params.labels;
+    }
+    if (params.assignee) {
+      fields.assignee = { id: params.assignee };
+    }
+
+    logDebugEvent('jira_client.create_issue.start', { projectKey: params.projectKey, summaryLength: params.summary.length });
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': this.authHeader,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ fields }),
+      });
+
+      if (!response.ok) {
+        const body = await response.text();
+        logDebugEvent('jira_client.create_issue.error', { status: response.status, body: body.substring(0, 500) });
+        return {
+          error: true,
+          status: response.status,
+          message: `Jira API error ${response.status}: ${body.substring(0, 200)}`,
+        };
+      }
+
+      const data = await response.json() as CreatedIssue;
+      logDebugEvent('jira_client.create_issue.success', { issueKey: data.key });
+      return data;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logDebugEvent('jira_client.create_issue.exception', { error: msg });
+      return {
+        error: true,
+        status: 0,
+        message: `Network error: ${msg}`,
+      };
     }
   }
 }

@@ -12,11 +12,12 @@ import { jiraAssignIssueTool } from './tools/jira-assign-issue';
 import { jiraGetTransitionsTool } from './tools/jira-get-transitions';
 import { jiraSearchUsersTool } from './tools/jira-search-users';
 import { jiraSearchIssuesTool } from './tools/jira-search-issues';
+import { jiraCreateIssueTool } from './tools/jira-create-issue';
 import { createJiraHooks } from './hooks';
 import { logDebugEvent } from './debug-logger';
 
 const FourOpencodeJira: Plugin = async (_ctx) => {
-  logDebugEvent('plugin.init', { version: '0.2.0' });
+  logDebugEvent('plugin.init', { version: '0.3.0' });
 
   return {
     tool: {
@@ -30,6 +31,7 @@ const FourOpencodeJira: Plugin = async (_ctx) => {
       jira_get_transitions: jiraGetTransitionsTool,
       jira_search_users: jiraSearchUsersTool,
       jira_search_issues: jiraSearchIssuesTool,
+      jira_create_issue: jiraCreateIssueTool,
     },
     ...createJiraHooks(),
   };
