@@ -96,6 +96,12 @@ export interface Transition {
   name: string;
 }
 
+export interface CreatedIssue {
+  id: string;
+  key: string;
+  self: string;
+}
+
 export interface JiraError {
   error: true;
   status: number;
