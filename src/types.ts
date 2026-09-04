@@ -96,6 +96,19 @@ export interface Transition {
   name: string;
 }
 
+/**
+ * Result of a JQL search via POST /rest/api/3/search/jql.
+ *
+ * The enhanced-search endpoint pages with an opaque cursor instead of
+ * `startAt`, and returns no `total` — use the approximate-count endpoint
+ * if a count is needed.
+ */
+export interface SearchResult {
+  issues: JiraIssue[];
+  nextPageToken?: string;
+  isLast: boolean;
+}
+
 export interface CreatedIssue {
   id: string;
   key: string;
