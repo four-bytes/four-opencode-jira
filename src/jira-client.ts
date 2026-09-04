@@ -1,13 +1,22 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025-2026 Four Bytes
 
-import type { JiraConfig, JiraIssue, CommentResult, Transition, JiraError, CreatedIssue } from './types';
+import type { JiraConfig, JiraIssue, CommentResult, Transition, JiraError, CreatedIssue, SearchResult } from './types';
 import { getCredential } from './config';
 import { logDebugEvent } from './debug-logger';
 
 // ────────────────────────────────────────────────────────────────
 // JiraClient — Jira REST API v3 wrapper
 // ────────────────────────────────────────────────────────────────
+
+/** Hard cap the enhanced-search endpoint enforces on `maxResults`. */
+const MAX_SEARCH_RESULTS = 5000;
+
+/**
+ * Fields requested by default in a JQL search.
+ * `/rest/api/3/search/jql` returns issue ids only unless fields are named.
+ */
+const DEFAULT_SEARCH_FIELDS = ['summary', 'status', 'assignee'];
 
 export class JiraClient {
   private baseUrl: string;
@@ -303,18 +312,41 @@ export class JiraClient {
 
   /**
    * Search Jira issues with JQL.
-   * GET /rest/api/3/search?jql={jql}&fields=summary,status,assignee
+   * POST /rest/api/3/search/jql
+   *
+   * Replaces GET /rest/api/3/search, which Atlassian removed from Jira Cloud.
+   * The enhanced-search endpoint differs in three ways that matter here:
+   *  - paging is a cursor (`nextPageToken`), not `startAt`
+   *  - the response carries no `total`
+   *  - fields must be named explicitly, or only issue ids come back
    */
-  async searchIssues(jql: string, maxResults: number = 10): Promise<JiraIssue[] | JiraError> {
-    const url = `${this.baseUrl}/rest/api/3/search?jql=${encodeURIComponent(jql)}&fields=summary,status,assignee&maxResults=${maxResults}`;
+  async searchIssues(
+    jql: string,
+    maxResults: number = 10,
+    options: { fields?: string[]; nextPageToken?: string } = {},
+  ): Promise<SearchResult | JiraError> {
+    const url = `${this.baseUrl}/rest/api/3/search/jql`;
+
+    // The endpoint rejects maxResults outside 1..5000.
+    const limit = Math.min(Math.max(Math.trunc(maxResults) || 1, 1), MAX_SEARCH_RESULTS);
+
+    const payload: Record<string, unknown> = {
+      jql,
+      maxResults: limit,
+      fields: options.fields ?? DEFAULT_SEARCH_FIELDS,
+    };
+    if (options.nextPageToken) payload.nextPageToken = options.nextPageToken;
 
     try {
+      // POST rather than GET — long JQL expressions blow past URL length limits.
       const response = await fetch(url, {
-        method: 'GET',
+        method: 'POST',
         headers: {
           'Authorization': this.authHeader,
           'Accept': 'application/json',
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
@@ -327,9 +359,13 @@ export class JiraClient {
         };
       }
 
-      const data = await response.json() as { issues: JiraIssue[] };
-      logDebugEvent('jira_client.searchIssues.success', { jql, count: data.issues?.length || 0 });
-      return data.issues || [];
+      const data = await response.json() as { issues?: JiraIssue[]; nextPageToken?: string; isLast?: boolean };
+      const issues = data.issues || [];
+      // `isLast` is not always present — absence of a token means no more pages.
+      const isLast = data.isLast ?? !data.nextPageToken;
+
+      logDebugEvent('jira_client.searchIssues.success', { jql, count: issues.length, isLast });
+      return { issues, nextPageToken: data.nextPageToken, isLast };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       logDebugEvent('jira_client.searchIssues.exception', { jql, error: msg });

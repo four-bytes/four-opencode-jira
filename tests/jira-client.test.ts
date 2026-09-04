@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025-2026 Four Bytes
 
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect, afterEach } from 'bun:test';
 import { JiraClient, createJiraClient } from '../src/jira-client';
 import { DEFAULT_CONFIG } from '../src/types';
 
@@ -148,5 +148,120 @@ describe('createJiraClient', () => {
     else delete process.env.JIRA_EMAIL;
     if (originalToken !== undefined) process.env.JIRA_API_TOKEN = originalToken;
     else delete process.env.JIRA_API_TOKEN;
+  });
+});
+
+// ────────────────────────────────────────────────────────────────
+// JQL search — POST /rest/api/3/search/jql (replaces removed /search)
+// ────────────────────────────────────────────────────────────────
+
+describe('JiraClient.searchIssues', () => {
+  const client = new JiraClient('https://jira.example.com', 'user@example.com', 'secret');
+  const realFetch = globalThis.fetch;
+
+  /** Stub global fetch, capture the request, reply with `body`. */
+  function stubFetch(body: unknown, status = 200) {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    globalThis.fetch = (async (url: string, init: RequestInit) => {
+      calls.push({ url: String(url), init });
+      return new Response(JSON.stringify(body), {
+        status,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }) as unknown as typeof fetch;
+    return calls;
+  }
+
+  afterEach(() => {
+    globalThis.fetch = realFetch;
+  });
+
+  it('posts to /rest/api/3/search/jql with jql, maxResults and explicit fields', async () => {
+    const calls = stubFetch({ issues: [], isLast: true });
+
+    await client.searchIssues('project = TEST', 25);
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!.url).toBe('https://jira.example.com/rest/api/3/search/jql');
+    expect(calls[0]!.init.method).toBe('POST');
+    const payload = JSON.parse(String(calls[0]!.init.body));
+    expect(payload.jql).toBe('project = TEST');
+    expect(payload.maxResults).toBe(25);
+    // Without an explicit field list the endpoint returns ids only.
+    expect(payload.fields).toEqual(['summary', 'status', 'assignee']);
+    expect(payload.nextPageToken).toBeUndefined();
+  });
+
+  it('clamps maxResults to the 1..5000 range the endpoint accepts', async () => {
+    let calls = stubFetch({ issues: [] });
+    await client.searchIssues('project = TEST', 99999);
+    expect(JSON.parse(String(calls[0]!.init.body)).maxResults).toBe(5000);
+
+    calls = stubFetch({ issues: [] });
+    await client.searchIssues('project = TEST', 0);
+    expect(JSON.parse(String(calls[0]!.init.body)).maxResults).toBe(1);
+  });
+
+  it('sends nextPageToken when paging', async () => {
+    const calls = stubFetch({ issues: [], isLast: true });
+
+    await client.searchIssues('project = TEST', 10, { nextPageToken: 'CAEaAggD' });
+
+    expect(JSON.parse(String(calls[0]!.init.body)).nextPageToken).toBe('CAEaAggD');
+  });
+
+  it('honours a custom field list', async () => {
+    const calls = stubFetch({ issues: [] });
+
+    await client.searchIssues('project = TEST', 10, { fields: ['summary', 'labels'] });
+
+    expect(JSON.parse(String(calls[0]!.init.body)).fields).toEqual(['summary', 'labels']);
+  });
+
+  it('returns issues plus the paging cursor', async () => {
+    stubFetch({
+      issues: [{ id: '1', key: 'TEST-1', fields: { summary: 'One', status: { name: 'Open', id: '1' }, labels: [] } }],
+      nextPageToken: 'tok-2',
+      isLast: false,
+    });
+
+    const result = await client.searchIssues('project = TEST');
+
+    expect('error' in result).toBe(false);
+    if ('error' in result) return;
+    expect(result.issues).toHaveLength(1);
+    expect(result.issues[0]!.key).toBe('TEST-1');
+    expect(result.nextPageToken).toBe('tok-2');
+    expect(result.isLast).toBe(false);
+  });
+
+  it('treats a missing isLast as the final page when no token is returned', async () => {
+    stubFetch({ issues: [] });
+
+    const result = await client.searchIssues('project = TEST');
+
+    expect('error' in result).toBe(false);
+    if ('error' in result) return;
+    expect(result.isLast).toBe(true);
+    expect(result.issues).toEqual([]);
+  });
+
+  it('returns a structured error on a non-OK response', async () => {
+    stubFetch({ errorMessages: ['bad jql'] }, 400);
+
+    const result = await client.searchIssues('nonsense');
+
+    expect('error' in result).toBe(true);
+    if (!('error' in result)) return;
+    expect(result.status).toBe(400);
+  });
+
+  it('returns a structured error for a bad URL instead of throwing', async () => {
+    const broken = new JiraClient('https://does-not-exist.invalid', 'u@e.com', 'p');
+    const result = await broken.searchIssues('project = TEST');
+
+    expect('error' in result).toBe(true);
+    if (!('error' in result)) return;
+    expect(result.message).toBeTruthy();
   });
 });

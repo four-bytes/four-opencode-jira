@@ -58,7 +58,7 @@ Credentials priority: JSON file > environment variables.
 | Tool | Description |
 |------|-------------|
 | `jira_get_issue` | Read issue fields (status, summary, assignee, labels) |
-| `jira_search_issues` | Search issues with JQL (text, status, assignee filters) |
+| `jira_search_issues` | Search issues with JQL (text, status, assignee filters), cursor-paged |
 | `jira_search_users` | Find users by name/email — returns account IDs for assignment |
 | `jira_assign_issue` | Assign/unassign issue to user |
 | `jira_add_comment` | Add ADF-formatted comment (supports Markdown → ADF conversion) |
