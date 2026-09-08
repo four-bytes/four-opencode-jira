@@ -45,9 +45,9 @@ export const jiraAddCommentTool = tool({
         return `Jira not configured. Missing environment variables: ${missing.join(', ')}.`;
       }
 
-      // Format comment using the configured template
+      // Format comment using the configured template.
+      // The user's text is the whole comment body — no derived summary line on top.
       const formatted = formatComment(config.comments.template, {
-        summary: commentText.substring(0, 100),
         details: commentText,
       });
 
