@@ -7,7 +7,8 @@
  */
 
 export interface CommentData {
-  summary: string;
+  /** Optional lead-in line. Omit it to post `details` as the entire comment body. */
+  summary?: string;
   details?: string;
   statusHint?: string;
 }

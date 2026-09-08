@@ -57,6 +57,20 @@ describe('formatComment', () => {
     expect(textOf(doc)).not.toContain('In Progress');
   });
 
+  // jira_add_comment posts the user's text as `details` alone. An omitted
+  // summary must not put a lead-in line above the body (it used to pass the
+  // first 100 chars as `summary`, which prefixed every comment with a
+  // truncated copy of itself).
+  it('emits the body once when only details are given', () => {
+    const body = 'Reviewed the migration and it looks correct end to end.';
+    for (const template of ['markdown', 'plain', 'adf']) {
+      const doc = asDoc(formatComment(template, { details: body }));
+      const occurrences = textOf(doc).split(body).length - 1;
+      expect(occurrences).toBe(1);
+      expect(doc.content.length).toBe(1);
+    }
+  });
+
   it('renders the status hint as a strong node', () => {
     const doc = asDoc(formatComment('markdown', testData));
 
