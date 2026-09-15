@@ -152,6 +152,69 @@ describe('createJiraClient', () => {
 });
 
 // ────────────────────────────────────────────────────────────────
+// JiraClient.createIssue — custom field support
+// ────────────────────────────────────────────────────────────────
+
+describe('JiraClient.createIssue', () => {
+  const client = new JiraClient('https://jira.example.com', 'user@example.com', 'secret');
+  const realFetch = globalThis.fetch;
+
+  function stubFetch(body: unknown, status = 201) {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    globalThis.fetch = (async (url: string, init: RequestInit) => {
+      calls.push({ url: String(url), init });
+      return new Response(JSON.stringify(body), {
+        status,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }) as unknown as typeof fetch;
+    return calls;
+  }
+
+  afterEach(() => {
+    globalThis.fetch = realFetch;
+  });
+
+  it('merges customFields into the fields payload', async () => {
+    const calls = stubFetch({ id: '10001', key: 'TEST-42', self: 'https://jira.example.com/rest/api/3/issue/10001' });
+
+    await client.createIssue({
+      projectKey: 'TEST',
+      summary: 'Hello',
+      customFields: { customfield_10495: { value: 'High' } },
+    });
+
+    expect(calls).toHaveLength(1);
+    const payload = JSON.parse(String(calls[0]!.init.body));
+    expect(payload.fields.customfield_10495).toEqual({ value: 'High' });
+  });
+
+  it('does not let customFields clobber project/summary/issuetype', async () => {
+    const calls = stubFetch({ id: '1', key: 'TEST-2', self: 'x' });
+
+    await client.createIssue({
+      projectKey: 'TEST',
+      summary: 'Real summary',
+      customFields: { summary: 'evil', project: { key: 'EVIL' } },
+    });
+
+    const payload = JSON.parse(String(calls[0]!.init.body));
+    expect(payload.fields.summary).toBe('Real summary');
+    expect(payload.fields.project).toEqual({ key: 'TEST' });
+    expect(payload.fields.issuetype).toEqual({ name: 'Task' });
+  });
+
+  it('omits custom fields from the payload when not provided', async () => {
+    const calls = stubFetch({ id: '1', key: 'TEST-3', self: 'x' });
+
+    await client.createIssue({ projectKey: 'TEST', summary: 'Hello' });
+
+    const payload = JSON.parse(String(calls[0]!.init.body));
+    expect(payload.fields.customfield_10495).toBeUndefined();
+  });
+});
+
+// ────────────────────────────────────────────────────────────────
 // JQL search — POST /rest/api/3/search/jql (replaces removed /search)
 // ────────────────────────────────────────────────────────────────
 

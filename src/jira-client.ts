@@ -385,15 +385,16 @@ export class JiraClient {
     priority?: string;
     labels?: string[];
     assignee?: string;
+    customFields?: Record<string, unknown>;
   }): Promise<CreatedIssue | JiraError> {
     const url = `${this.baseUrl}/rest/api/3/issue`;
 
-    // Build fields dynamically — only include optional fields when they have values
-    const fields: Record<string, unknown> = {
-      project: { key: params.projectKey },
-      summary: params.summary,
-      issuetype: { name: params.issueType || 'Task' },
-    };
+    // Custom fields merge first so reserved keys (project/summary/issuetype)
+    // assigned below cannot be clobbered by caller-supplied values.
+    const fields: Record<string, unknown> = { ...(params.customFields ?? {}) };
+    fields.project = { key: params.projectKey };
+    fields.summary = params.summary;
+    fields.issuetype = { name: params.issueType || 'Task' };
 
     if (params.description) {
       fields.description = params.description;
