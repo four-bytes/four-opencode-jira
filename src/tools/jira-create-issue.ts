@@ -13,7 +13,7 @@ import type { CreatedIssue } from '../types';
 // ────────────────────────────────────────────────────────────────
 
 export const jiraCreateIssueTool = tool({
-  description: 'Create a new Jira issue in the configured project. Supports summary, markdown description, issue type, priority, labels, and assignee.',
+  description: 'Create a new Jira issue in the configured project. Supports summary, markdown description, issue type, priority, labels, assignee, and custom fields (customFields JSON).',
 
   args: {
     projectKey: tool.schema.string().describe('Jira project key (e.g. "SESSION")'),
@@ -23,6 +23,7 @@ export const jiraCreateIssueTool = tool({
     priority: tool.schema.string().optional().describe('Priority name (e.g. "High", "Medium", "Low")'),
     labels: tool.schema.string().optional().describe('Comma-separated label names (e.g. "bug,frontend")'),
     assignee: tool.schema.string().optional().describe('Jira account ID of the assignee'),
+    customFields: tool.schema.string().optional().describe('Custom field values as a JSON object keyed by field id (e.g. {"customfield_10495": {"value": "High"}}). Select/list fields need {value} or {id}; plain strings pass through.'),
   },
 
   async execute(args, ctx) {
@@ -33,6 +34,7 @@ export const jiraCreateIssueTool = tool({
     const priority = args.priority as string | undefined;
     const labelsRaw = args.labels as string | undefined;
     const assignee = args.assignee as string | undefined;
+    const customFieldsRaw = args.customFields as string | undefined;
 
     logDebugEvent('jira_create_issue.start', { projectKey, summary });
 
@@ -68,6 +70,20 @@ export const jiraCreateIssueTool = tool({
         ? labelsRaw.split(',').map(l => l.trim()).filter(Boolean)
         : undefined;
 
+      // Parse custom fields JSON — must be a flat object keyed by field id
+      let customFields: Record<string, unknown> | undefined;
+      if (customFieldsRaw) {
+        try {
+          const parsed = JSON.parse(customFieldsRaw);
+          if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+            return 'Error: customFields must be a JSON object (e.g. {"customfield_10495": {"value": "High"}}).';
+          }
+          customFields = parsed as Record<string, unknown>;
+        } catch {
+          return 'Error: customFields is not valid JSON.';
+        }
+      }
+
       // Build params — only include optional fields when they have values
       const params: {
         projectKey: string;
@@ -77,6 +93,7 @@ export const jiraCreateIssueTool = tool({
         priority?: string;
         labels?: string[];
         assignee?: string;
+        customFields?: Record<string, unknown>;
       } = { projectKey, summary };
 
       if (descAdf) params.description = descAdf;
@@ -84,6 +101,7 @@ export const jiraCreateIssueTool = tool({
       if (priority) params.priority = priority;
       if (labels && labels.length > 0) params.labels = labels;
       if (assignee) params.assignee = assignee;
+      if (customFields) params.customFields = customFields;
 
       const result = await client.createIssue(params);
 
