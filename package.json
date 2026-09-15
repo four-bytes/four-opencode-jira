@@ -1,11 +1,14 @@
 {
   "name": "@four-bytes/four-opencode-jira",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "description": "Jira REST API integration tools for opencode agents — issue create/read, comments, transitions, assignment, search, progress sync, and config validation; project-local .opencode/jira.json config, optional hook automation. Source: Perplexity P49.",
   "license": "Apache-2.0",
   "type": "module",
   "main": "dist/four-opencode-jira.js",
   "types": "dist/four-opencode-jira.d.ts",
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "bun run scripts/build.ts",
     "test": "bun test",
