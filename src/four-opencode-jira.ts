@@ -2,6 +2,7 @@
 // Copyright (c) 2025-2026 Four Bytes
 
 import type { Plugin } from '@opencode-ai/plugin';
+import { readFileSync } from 'node:fs';
 import { jiraGetIssueTool } from './tools/jira-get-issue';
 import { jiraAddCommentTool } from './tools/jira-add-comment';
 import { jiraTransitionIssueTool } from './tools/jira-transition-issue';
@@ -17,8 +18,17 @@ import { jiraGetCreateMetaTool } from './tools/jira-get-create-meta';
 import { createJiraHooks } from './hooks';
 import { logDebugEvent } from './debug-logger';
 
+function readVersion(): string {
+  try {
+    const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version?: string };
+    return pkg.version ?? 'unknown';
+  } catch {
+    return 'unknown';
+  }
+}
+
 const FourOpencodeJira: Plugin = async (_ctx) => {
-  logDebugEvent('plugin.init', { version: '0.3.0' });
+  logDebugEvent('plugin.init', { version: readVersion() });
 
   return {
     tool: {
