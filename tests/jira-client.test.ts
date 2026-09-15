@@ -328,3 +328,87 @@ describe('JiraClient.searchIssues', () => {
     expect(result.message).toBeTruthy();
   });
 });
+
+// ────────────────────────────────────────────────────────────────
+// JiraClient create metadata — issue types + fields
+// ────────────────────────────────────────────────────────────────
+
+describe('JiraClient.getCreateMetaIssueTypes', () => {
+  const client = new JiraClient('https://jira.example.com', 'user@example.com', 'secret');
+  const realFetch = globalThis.fetch;
+
+  function stubFetch(body: unknown, status = 200) {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    globalThis.fetch = (async (url: string, init: RequestInit) => {
+      calls.push({ url: String(url), init });
+      return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+    }) as unknown as typeof fetch;
+    return calls;
+  }
+
+  afterEach(() => { globalThis.fetch = realFetch; });
+
+  it('hits the issue-types endpoint and parses issueTypes', async () => {
+    const calls = stubFetch({ issueTypes: [{ id: '10000', name: 'Task' }, { id: '10001', name: 'Bug' }], total: 2 });
+    const result = await client.getCreateMetaIssueTypes('SESSION');
+    expect(calls[0]!.url).toContain('https://jira.example.com/rest/api/3/issue/createmeta/SESSION/issuetypes?startAt=0&maxResults=200');
+    expect('error' in result).toBe(false);
+    if ('error' in result) return;
+    expect(result.issueTypes).toHaveLength(2);
+    expect(result.issueTypes[0]!.name).toBe('Task');
+  });
+
+  it('paginates until all issue types are fetched', async () => {
+    const responses = [
+      { issueTypes: [{ id: '1', name: 'Task' }, { id: '2', name: 'Bug' }], total: 3 },
+      { issueTypes: [{ id: '3', name: 'Story' }], total: 3 },
+    ];
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    globalThis.fetch = (async (url: string, init: RequestInit) => {
+      calls.push({ url: String(url), init });
+      return new Response(JSON.stringify(responses[calls.length - 1]), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }) as unknown as typeof fetch;
+
+    const result = await client.getCreateMetaIssueTypes('SESSION');
+    expect(calls).toHaveLength(2);
+    expect(calls[1]!.url).toContain('startAt=2');
+    if ('error' in result) return;
+    expect(result.issueTypes).toHaveLength(3);
+  });
+
+  it('returns a structured error on a non-OK response', async () => {
+    stubFetch({ errorMessages: ['no project'] }, 404);
+    const result = await client.getCreateMetaIssueTypes('NOPE');
+    expect('error' in result).toBe(true);
+  });
+});
+
+describe('JiraClient.getCreateMetaFields', () => {
+  const client = new JiraClient('https://jira.example.com', 'user@example.com', 'secret');
+  const realFetch = globalThis.fetch;
+
+  function stubFetch(body: unknown, status = 200) {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    globalThis.fetch = (async (url: string, init: RequestInit) => {
+      calls.push({ url: String(url), init });
+      return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+    }) as unknown as typeof fetch;
+    return calls;
+  }
+
+  afterEach(() => { globalThis.fetch = realFetch; });
+
+  it('hits the fields endpoint and parses field descriptors', async () => {
+    const calls = stubFetch({ fields: [
+      { required: true, fieldId: 'summary', name: 'Summary', schema: { type: 'string', system: 'summary' } },
+      { required: true, fieldId: 'customfield_10495', name: 'Business Impact', schema: { type: 'option', custom: 'com.atlassian.jira.plugin.system.customfieldtypes:select', customId: 10495 }, allowedValues: [{ id: '10000', value: 'High' }, { id: '10001', value: 'Low' }] },
+    ], total: 2 });
+    const result = await client.getCreateMetaFields('SESSION', '10000');
+    expect(calls[0]!.url).toContain('https://jira.example.com/rest/api/3/issue/createmeta/SESSION/issuetypes/10000?startAt=0&maxResults=200');
+    expect('error' in result).toBe(false);
+    if ('error' in result) return;
+    expect(result.fields).toHaveLength(2);
+    expect(result.fields[1]!.fieldId).toBe('customfield_10495');
+    expect(result.fields[1]!.allowedValues?.[0]?.value).toBe('High');
+  });
+});

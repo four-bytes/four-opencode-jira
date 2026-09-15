@@ -115,6 +115,39 @@ export interface CreatedIssue {
   self: string;
 }
 
+export interface CreateMetaIssueType {
+  id: string;
+  name: string;
+  subtask?: boolean;
+  [key: string]: unknown;
+}
+
+export interface CreateMetaField {
+  required: boolean;
+  fieldId: string;
+  name: string;
+  hasDefaultValue?: boolean;
+  operations?: string[];
+  schema?: {
+    type?: string;
+    system?: string;
+    custom?: string;
+    customId?: number;
+    items?: string;
+  };
+  allowedValues?: Array<{ id?: string; value?: string; name?: string }>;
+}
+
+export interface CreateMetaIssueTypesResult {
+  issueTypes: CreateMetaIssueType[];
+  total?: number;
+}
+
+export interface CreateMetaFieldsResult {
+  fields: CreateMetaField[];
+  total?: number;
+}
+
 export interface JiraError {
   error: true;
   status: number;

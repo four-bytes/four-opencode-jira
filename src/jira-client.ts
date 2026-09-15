@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025-2026 Four Bytes
 
-import type { JiraConfig, JiraIssue, CommentResult, Transition, JiraError, CreatedIssue, SearchResult } from './types';
+import type { JiraConfig, JiraIssue, CommentResult, Transition, JiraError, CreatedIssue, SearchResult, CreateMetaIssueType, CreateMetaField, CreateMetaIssueTypesResult, CreateMetaFieldsResult } from './types';
 import { getCredential } from './config';
 import { logDebugEvent } from './debug-logger';
 
@@ -369,6 +369,86 @@ export class JiraClient {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       logDebugEvent('jira_client.searchIssues.exception', { jql, error: msg });
+      return { error: true, status: 0, message: `Network error: ${msg}` };
+    }
+  }
+
+  /**
+   * List issue types available for issue creation in a project (paginated).
+   * GET /rest/api/3/issue/createmeta/{projectIdOrKey}/issuetypes
+   */
+  async getCreateMetaIssueTypes(projectKey: string): Promise<CreateMetaIssueTypesResult | JiraError> {
+    const all: CreateMetaIssueType[] = [];
+    let startAt = 0;
+    const maxResults = 200;
+
+    try {
+      while (true) {
+        const url = `${this.baseUrl}/rest/api/3/issue/createmeta/${encodeURIComponent(projectKey)}/issuetypes?startAt=${startAt}&maxResults=${maxResults}`;
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: { 'Authorization': this.authHeader, 'Accept': 'application/json' },
+        });
+
+        if (!response.ok) {
+          const body = await response.text();
+          logDebugEvent('jira_client.getCreateMetaIssueTypes.error', { projectKey, status: response.status, body: body.substring(0, 500) });
+          return { error: true, status: response.status, message: `Jira API error ${response.status}: ${body.substring(0, 200)}` };
+        }
+
+        const data = await response.json() as { issueTypes?: CreateMetaIssueType[]; total?: number };
+        const items = data.issueTypes ?? [];
+        all.push(...items);
+        const total = data.total ?? all.length;
+        if (items.length === 0 || all.length >= total) break;
+        startAt += items.length;
+      }
+
+      logDebugEvent('jira_client.getCreateMetaIssueTypes.success', { projectKey, count: all.length });
+      return { issueTypes: all, total: all.length };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logDebugEvent('jira_client.getCreateMetaIssueTypes.exception', { projectKey, error: msg });
+      return { error: true, status: 0, message: `Network error: ${msg}` };
+    }
+  }
+
+  /**
+   * Field metadata for creating a specific issue type in a project (paginated).
+   * GET /rest/api/3/issue/createmeta/{projectIdOrKey}/issuetypes/{issueTypeId}
+   */
+  async getCreateMetaFields(projectKey: string, issueTypeId: string): Promise<CreateMetaFieldsResult | JiraError> {
+    const all: CreateMetaField[] = [];
+    let startAt = 0;
+    const maxResults = 200;
+
+    try {
+      while (true) {
+        const url = `${this.baseUrl}/rest/api/3/issue/createmeta/${encodeURIComponent(projectKey)}/issuetypes/${encodeURIComponent(issueTypeId)}?startAt=${startAt}&maxResults=${maxResults}`;
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: { 'Authorization': this.authHeader, 'Accept': 'application/json' },
+        });
+
+        if (!response.ok) {
+          const body = await response.text();
+          logDebugEvent('jira_client.getCreateMetaFields.error', { projectKey, issueTypeId, status: response.status, body: body.substring(0, 500) });
+          return { error: true, status: response.status, message: `Jira API error ${response.status}: ${body.substring(0, 200)}` };
+        }
+
+        const data = await response.json() as { fields?: CreateMetaField[]; total?: number };
+        const items = data.fields ?? [];
+        all.push(...items);
+        const total = data.total ?? all.length;
+        if (items.length === 0 || all.length >= total) break;
+        startAt += items.length;
+      }
+
+      logDebugEvent('jira_client.getCreateMetaFields.success', { projectKey, issueTypeId, count: all.length });
+      return { fields: all, total: all.length };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logDebugEvent('jira_client.getCreateMetaFields.exception', { projectKey, issueTypeId, error: msg });
       return { error: true, status: 0, message: `Network error: ${msg}` };
     }
   }

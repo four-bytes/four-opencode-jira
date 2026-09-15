@@ -13,6 +13,7 @@ import { jiraGetTransitionsTool } from './tools/jira-get-transitions';
 import { jiraSearchUsersTool } from './tools/jira-search-users';
 import { jiraSearchIssuesTool } from './tools/jira-search-issues';
 import { jiraCreateIssueTool } from './tools/jira-create-issue';
+import { jiraGetCreateMetaTool } from './tools/jira-get-create-meta';
 import { createJiraHooks } from './hooks';
 import { logDebugEvent } from './debug-logger';
 
@@ -32,6 +33,7 @@ const FourOpencodeJira: Plugin = async (_ctx) => {
       jira_search_users: jiraSearchUsersTool,
       jira_search_issues: jiraSearchIssuesTool,
       jira_create_issue: jiraCreateIssueTool,
+      jira_get_create_meta: jiraGetCreateMetaTool,
     },
     ...createJiraHooks(),
   };
