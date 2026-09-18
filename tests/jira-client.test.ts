@@ -201,7 +201,7 @@ describe('JiraClient.createIssue', () => {
     const payload = JSON.parse(String(calls[0]!.init.body));
     expect(payload.fields.summary).toBe('Real summary');
     expect(payload.fields.project).toEqual({ key: 'TEST' });
-    expect(payload.fields.issuetype).toEqual({ name: 'Task' });
+    expect(payload.fields.issuetype).toEqual({ name: 'Story' });
   });
 
   it('omits custom fields from the payload when not provided', async () => {

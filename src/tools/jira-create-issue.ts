@@ -19,7 +19,7 @@ export const jiraCreateIssueTool = tool({
     projectKey: tool.schema.string().describe('Jira project key (e.g. "SESSION")'),
     summary: tool.schema.string().describe('Issue summary/title'),
     description: tool.schema.string().optional().describe('Issue description in markdown (converted to ADF)'),
-    issueType: tool.schema.string().optional().describe('Issue type name (default if omitted: "Task")'),
+    issueType: tool.schema.string().optional().describe('Issue type name (default if omitted: config.defaultIssueType, fallback "Story")'),
     priority: tool.schema.string().optional().describe('Priority name (e.g. "High", "Medium", "Low")'),
     labels: tool.schema.string().optional().describe('Comma-separated label names (e.g. "bug,frontend")'),
     assignee: tool.schema.string().optional().describe('Jira account ID of the assignee'),
@@ -89,15 +89,14 @@ export const jiraCreateIssueTool = tool({
         projectKey: string;
         summary: string;
         description?: object;
-        issueType?: string;
+        issueType: string;
         priority?: string;
         labels?: string[];
         assignee?: string;
         customFields?: Record<string, unknown>;
-      } = { projectKey, summary };
+      } = { projectKey, summary, issueType: issueType || config.defaultIssueType || 'Story' };
 
       if (descAdf) params.description = descAdf;
-      if (issueType) params.issueType = issueType;
       if (priority) params.priority = priority;
       if (labels && labels.length > 0) params.labels = labels;
       if (assignee) params.assignee = assignee;
