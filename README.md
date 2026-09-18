@@ -45,6 +45,7 @@ Create `.opencode/jira.json` in your project:
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `projectKey` | string | `"SESSION"` | Jira project key |
+| `defaultIssueType` | string | `"Story"` | Issue type used by `jira_create_issue` when none is given |
 | `baseUrl` | string | env `JIRA_BASE_URL` | Jira Cloud URL (inline or env) |
 | `email` | string | env `JIRA_EMAIL` | Account email (inline or env) |
 | `apiToken` | string | env `JIRA_API_TOKEN` | API token from id.atlassian.com (inline or env) |

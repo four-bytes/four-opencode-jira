@@ -474,7 +474,7 @@ export class JiraClient {
     const fields: Record<string, unknown> = { ...(params.customFields ?? {}) };
     fields.project = { key: params.projectKey };
     fields.summary = params.summary;
-    fields.issuetype = { name: params.issueType || 'Task' };
+    fields.issuetype = { name: params.issueType || 'Story' };
 
     if (params.description) {
       fields.description = params.description;

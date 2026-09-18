@@ -28,6 +28,8 @@ export interface TransitionsConfig {
 export interface JiraConfig {
   enabled: boolean;
   projectKey: string;
+  /** Issue type used by jira_create_issue when no explicit issueType is given. */
+  defaultIssueType: string;
   baseUrlEnv: string;
   emailEnv: string;
   apiTokenEnv: string;
@@ -43,6 +45,7 @@ export interface JiraConfig {
 export const DEFAULT_CONFIG: JiraConfig = {
   enabled: true,
   projectKey: 'SESSION',
+  defaultIssueType: 'Story',
   baseUrlEnv: 'JIRA_BASE_URL',
   emailEnv: 'JIRA_EMAIL',
   apiTokenEnv: 'JIRA_API_TOKEN',

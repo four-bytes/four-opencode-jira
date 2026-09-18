@@ -46,6 +46,7 @@ describe('loadConfig', () => {
     const config = loadConfig(tmpDir);
     expect(config.enabled).toBe(true);
     expect(config.projectKey).toBe('SESSION');
+    expect(config.defaultIssueType).toBe('Story');
     expect(config.baseUrlEnv).toBe('JIRA_BASE_URL');
     expect(config.emailEnv).toBe('JIRA_EMAIL');
     expect(config.apiTokenEnv).toBe('JIRA_API_TOKEN');
