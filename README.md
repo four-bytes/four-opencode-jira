@@ -1,6 +1,6 @@
 # @four-bytes/four-opencode-jira
 
-> Jira REST API integration for opencode agents — 10 tools for issues, comments, transitions, and assignment with TUI sidebar.
+> Jira REST API integration for opencode agents — 11 tools for issues, comments, transitions, and assignment with TUI sidebar.
 
 [![npm](https://img.shields.io/npm/v/@four-bytes/four-opencode-jira)](https://www.npmjs.com/package/@four-bytes/four-opencode-jira)
 [![license](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
@@ -63,6 +63,7 @@ Credentials priority: JSON file > environment variables.
 | `jira_search_users` | Find users by name/email — returns account IDs for assignment |
 | `jira_assign_issue` | Assign/unassign issue to user |
 | `jira_add_comment` | Add ADF-formatted comment (supports Markdown → ADF conversion) |
+| `jira_edit_description` | Edit an issue's description (Markdown → ADF; empty clears it) |
 | `jira_transition_issue` | Transition issue to new status with fuzzy name matching |
 | `jira_get_transitions` | List available transitions for an issue (read-only) |
 | `jira_extract_issue_key` | Detect issue key from branch name, CWD, or text |
