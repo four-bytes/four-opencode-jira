@@ -7,6 +7,7 @@ import { jiraGetIssueTool } from './tools/jira-get-issue';
 import { jiraAddCommentTool } from './tools/jira-add-comment';
 import { jiraTransitionIssueTool } from './tools/jira-transition-issue';
 import { jiraExtractIssueKeyTool } from './tools/jira-extract-issue-key';
+import { jiraEditDescriptionTool } from './tools/jira-edit-description';
 import { jiraSyncProgressTool } from './tools/jira-sync-progress';
 import { jiraValidateConfigTool } from './tools/jira-validate-config';
 import { jiraAssignIssueTool } from './tools/jira-assign-issue';
@@ -36,6 +37,7 @@ const FourOpencodeJira: Plugin = async (_ctx) => {
       jira_add_comment: jiraAddCommentTool,
       jira_transition_issue: jiraTransitionIssueTool,
       jira_extract_issue_key: jiraExtractIssueKeyTool,
+      jira_edit_description: jiraEditDescriptionTool,
       jira_sync_progress: jiraSyncProgressTool,
       jira_validate_config: jiraValidateConfigTool,
       jira_assign_issue: jiraAssignIssueTool,

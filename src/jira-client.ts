@@ -196,6 +196,46 @@ export class JiraClient {
   }
 
   /**
+   * Update the description of a Jira issue.
+   * PUT /rest/api/3/issue/{issueKey}
+   *
+   * @param issueKey - The issue key (e.g. "PROJ-42")
+   * @param description - ADF document object, or null to clear the description
+   */
+  async updateDescription(issueKey: string, description: object | null): Promise<true | JiraError> {
+    const url = `${this.baseUrl}/rest/api/3/issue/${encodeURIComponent(issueKey)}`;
+
+    try {
+      const response = await fetch(url, {
+        method: 'PUT',
+        headers: {
+          'Authorization': this.authHeader,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ fields: { description } }),
+      });
+
+      if (!response.ok && response.status !== 204) {
+        const body = await response.text();
+        logDebugEvent('jira_client.updateDescription.error', { issueKey, status: response.status, body: body.substring(0, 500) });
+        return {
+          error: true,
+          status: response.status,
+          message: `Jira API error ${response.status}: ${body.substring(0, 200)}`,
+        };
+      }
+
+      logDebugEvent('jira_client.updateDescription.success', { issueKey });
+      return true;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logDebugEvent('jira_client.updateDescription.exception', { issueKey, error: msg });
+      return { error: true, status: 0, message: `Network error: ${msg}` };
+    }
+  }
+
+  /**
    * Test API connectivity by calling /myself.
    * Returns true on success, JiraError on failure.
    */
