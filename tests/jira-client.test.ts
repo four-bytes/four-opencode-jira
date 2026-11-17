@@ -10,6 +10,18 @@ import { DEFAULT_CONFIG } from '../src/types';
 // ────────────────────────────────────────────────────────────────
 
 describe('JiraClient', () => {
+  const realFetch = globalThis.fetch;
+
+  afterEach(() => {
+    globalThis.fetch = realFetch;
+  });
+
+  function stubNetworkError() {
+    globalThis.fetch = (async () => {
+      throw new Error('fetch failed (mocked network error)');
+    }) as unknown as typeof fetch;
+  }
+
   it('constructs with baseUrl, email, apiToken', () => {
     const client = new JiraClient('https://jira.example.com', 'user@example.com', 'secret-token');
     // Client should exist without errors
@@ -26,6 +38,7 @@ describe('JiraClient', () => {
   });
 
   it('getIssue returns structured error for bad URL (no real API)', async () => {
+    stubNetworkError();
     const client = new JiraClient('https://invalid.example.com', 'user@example.com', 'secret');
     const result = await client.getIssue('TEST-1');
 
@@ -34,10 +47,10 @@ describe('JiraClient', () => {
       expect(result.error).toBe(true);
       expect(result.message).toBeTruthy();
     }
-    // Network failure will result in an error object — that's fine
   });
 
   it('addComment returns structured error for bad URL', async () => {
+    stubNetworkError();
     const client = new JiraClient('https://invalid.example.com', 'user@example.com', 'secret');
     const result = await client.addComment('TEST-1', 'Hello');
 
@@ -48,6 +61,7 @@ describe('JiraClient', () => {
   });
 
   it('getTransitions returns structured error for bad URL', async () => {
+    stubNetworkError();
     const client = new JiraClient('https://invalid.example.com', 'user@example.com', 'secret');
     const result = await client.getTransitions('TEST-1');
 
@@ -58,6 +72,7 @@ describe('JiraClient', () => {
   });
 
   it('doTransition returns structured error for bad URL', async () => {
+    stubNetworkError();
     const client = new JiraClient('https://invalid.example.com', 'user@example.com', 'secret');
     const result = await client.doTransition('TEST-1', '11');
 
@@ -68,6 +83,7 @@ describe('JiraClient', () => {
   });
 
   it('addComment wraps string body in ADF', async () => {
+    stubNetworkError();
     // We can only test the formatting logic without real API calls.
     // verify that the client accepts string body without throwing.
     const client = new JiraClient('https://jira.example.com', 'user@example.com', 'secret');
@@ -78,6 +94,7 @@ describe('JiraClient', () => {
   });
 
   it('all API methods catch network errors and return error objects', async () => {
+    stubNetworkError();
     const client = new JiraClient('https://does-not-exist.invalid', 'u@e.com', 'p');
 
     // All calls should return something (not throw)
